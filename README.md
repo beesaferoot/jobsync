@@ -19,20 +19,26 @@ That's the whole enqueue path. The dashboard above is one line to mount.
 
 ## Why another job queue
 
-Go has good job libraries. Each one locks you to a backend.
+Go has excellent job libraries — [River] on Postgres and [asynq] on Redis are
+both worth your time, and if you are settled on one of those backends you should
+look at them first.
 
-| | [River] | [asynq] | **jobsync** |
-|---|---|---|---|
-| Storage | Postgres only | Redis only | **Postgres, MySQL, Redis, or your own** |
-| Transactional enqueue | yes | no | yes, where the engine allows it |
-| Dashboard | separate project | separate binary | **one `http.Handler`, same UI on every driver** |
-| Declaring a job | args type + `Kind()` + worker struct + registry call | handler + task-type string + mux | **one `Declare`, one `Handle`** |
+jobsync is built around a storage contract rather than a database. The same API,
+the same dashboard and the same guarantees run on Postgres, MySQL or Redis, and
+you can move between them without rewriting your jobs.
+
+| | jobsync |
+|---|---|
+| Storage | Postgres, MySQL, Redis, or your own driver |
+| Dashboard | one `http.Handler` in your process, identical on every driver |
+| Transactional enqueue | yes, on the engines that support it |
+| Recurring jobs | cron with per-fleet locking, in the same library |
 
 [River]: https://riverqueue.com
 [asynq]: https://github.com/hibiken/asynq
 
-**MySQL is the gap.** Nothing else in the Go ecosystem gives you a real job
-dashboard on MySQL. If that's your database, this is the reason to be here.
+**Running MySQL?** The MySQL driver is first-class here — same conformance
+suite, same dashboard, same semantics as Postgres and Redis.
 
 ## Install
 
@@ -58,7 +64,8 @@ go srv.Run(ctx)
 http.Handle("/jobs/", jobsync.Dashboard(store, jobsync.DashboardConfig{BasePath: "/jobs"}))
 ```
 
-No migration CLI step, no separate dashboard process, no npm.
+`Open` runs its own migrations, and the dashboard is a handler inside the
+process you already deploy.
 
 ### The API, in full
 
@@ -77,9 +84,10 @@ SendWelcome.Handle(srv, func(ctx context.Context, a WelcomeArgs) error {
 })
 ```
 
-No `Kind()` method on your args type, no worker struct, no registry call.
-Dependencies come from closure capture, which is what Go has instead of an IoC
-container.
+`Declare` gives you a typed handle that any package can enqueue against.
+`Handle` binds the implementation at wiring time, where your dependencies
+already exist — so they arrive by closure capture, which is what Go offers in
+place of a container.
 
 <details>
 <summary><b>A complete program</b></summary>
@@ -138,8 +146,8 @@ func main() {
 
 ## The dashboard
 
-Mount it on any `http.ServeMux` and you get the whole thing — one embedded HTML
-file, no CDN, no build step, works air-gapped.
+Mount it on any `http.ServeMux` and you get the whole thing. It ships as a single
+embedded HTML file, so it renders offline and stays out of your build pipeline.
 
 **Find the job that broke.** Filter by state from the sidebar; the failure
 message is in the table, so you don't have to open anything to see what went
