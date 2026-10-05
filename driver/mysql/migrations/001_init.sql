@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS jobsync_jobs (
+    id           VARCHAR(64)  NOT NULL PRIMARY KEY,
+    kind         VARCHAR(255) NOT NULL,
+    queue        VARCHAR(255) NOT NULL,
+    payload      LONGBLOB     NOT NULL,
+    priority     INT          NOT NULL DEFAULT 0,
+    attempt      INT          NOT NULL DEFAULT 0,
+    max_attempts INT          NOT NULL,
+    state        VARCHAR(32)  NOT NULL,
+    unique_key   VARCHAR(255) NULL,
+    tags         JSON         NULL,
+    last_error   TEXT         NULL,
+    transitions  JSON         NULL,
+    created_at   DATETIME(6)  NOT NULL,
+    scheduled_at DATETIME(6)  NOT NULL,
+    leased_until DATETIME(6)  NULL,
+    owner        VARCHAR(255) NOT NULL DEFAULT '',
+    INDEX jobsync_jobs_fetch (state, queue, priority, scheduled_at),
+    INDEX jobsync_jobs_reclaim (state, leased_until),
+    INDEX jobsync_jobs_browse (state, created_at),
+    UNIQUE INDEX jobsync_jobs_unique_key (unique_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4

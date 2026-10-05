@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  # storagetest.DSN fails rather than skips when CI is set. A conformance suite
+  # that silently skips reports green while testing nothing.
+  CI: "true"
+  TEST_POSTGRES_URL: postgres://jobsync:jobsync@127.0.0.1:5432/jobsync?sslmode=disable
+  TEST_REDIS_URL: redis://127.0.0.1:6379/0
+  TEST_MYSQL_DSN: root:jobsync@tcp(127.0.0.1:3306)/jobsync?parseTime=true&loc=UTC
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: jobsync
+          POSTGRES_PASSWORD: jobsync
+          POSTGRES_DB: jobsync
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U jobsync"
+          --health-interval 2s --health-timeout 3s --health-retries 15
+
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 2s --health-timeout 3s --health-retries 15
+
+      # Pinned to the 8.0 floor, not 8.4: CI must fail if a driver starts
+      # relying on syntax the documented minimum does not have.
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: jobsync
+          MYSQL_DATABASE: jobsync
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -pjobsync"
+          --health-interval 3s --health-timeout 3s --health-retries 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # 1.22 is the floor declared in go.mod. Building only on `stable` would
+        # not notice a stdlib call that quietly needs a newer toolchain — which
+        # is exactly how the floor rots.
+        go: ["1.22", "stable"]
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+          cache: true
+
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "::error::gofmt needed on:"; echo "$unformatted"; exit 1
+          fi
+
+      - run: go vet ./...
+
+      # -count=5 is not belt and braces. The clock-skew bug — a job enqueued with
+      # ScheduledAt = time.Now() landing microseconds in the storage's future and
+      # so not yet fetchable — passed a single run and failed on repeat. Anything
+      # that depends on two clocks, or on a lease boundary, is a coin flip that
+      # one run will call heads.
+      - name: Conformance and unit tests
+        run: go test -race -count=5 ./...
+
+      # Exclusivity is the one property a single run cannot establish: a driver
+      # that forgets SKIP LOCKED passes once and fails under contention. Hammer
+      # it separately so a flake here is unmissable rather than buried.
+      - name: Fetch exclusivity under contention
+        run: go test -race -count=50 -run 'TestConformance/FetchIsExclusive' ./driver/...
+
+      # The dashboard API is the contract between the UI and every driver. A
+      # response shape that differs between them becomes permanent the moment a
+      # page reads it, so all four answer the same assertions.
+      - name: Dashboard API across all drivers
+        run: go test -race -run TestDashboardAPI ./driver/...

@@ -1,0 +1,13 @@
+# macOS
+.DS_Store
+
+# Internal build log — phase-by-phase history, not part of the published project.
+PLAN.md
+
+# Reference screenshots of another product's dashboard, kept locally for design
+# comparison. Not ours to redistribute.
+screenshots/
+
+# Local env overrides for the demo and the conformance suite.
+.env
+.env.local

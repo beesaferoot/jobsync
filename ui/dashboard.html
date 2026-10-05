@@ -1,0 +1,749 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>jobsync</title>
+<style>
+:root{
+  --bg:#f4f5f7; --panel:#fff; --sunken:#fafbfc; --border:#e1e4e8; --line:#eef0f2;
+  --text:#1b1f24; --muted:#6a737d; --faint:#959da5;
+  --accent:#0969da; --accent-bg:#ddf4ff;
+  --ok:#1a7f37; --ok-bg:#dafbe1; --warn:#9a6700; --warn-bg:#fff8c5;
+  --bad:#cf222e; --bad-bg:#ffebe9; --run:#8250df; --run-bg:#fbefff;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#0d1117; --panel:#161b22; --sunken:#0d1117; --border:#30363d; --line:#21262d;
+    --text:#e6edf3; --muted:#8b949e; --faint:#6e7681;
+    --accent:#4493f8; --accent-bg:#0c2d6b;
+    --ok:#3fb950; --ok-bg:#0f2f17; --warn:#d29922; --warn-bg:#352a0f;
+    --bad:#f85149; --bad-bg:#3c1618; --run:#a371f7; --run-bg:#2a1f3d;
+  }
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);display:flex;flex-direction:column;
+     font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+
+/* ---- top bar: the counts are the navigation ---- */
+.topbar{background:var(--panel);border-bottom:1px solid var(--border);
+        display:flex;align-items:stretch;gap:2px;padding:0 16px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:8px;padding:14px 18px 14px 0;font-weight:600;letter-spacing:-.01em}
+.brand svg{width:18px;height:18px;color:var(--accent)}
+.topbar nav{display:flex;align-items:stretch}
+.topbar nav button{background:none;border:0;border-bottom:2px solid transparent;padding:0 16px;
+     font:inherit;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:7px}
+.topbar nav button:hover{color:var(--text)}
+.topbar nav button[aria-selected=true]{color:var(--text);font-weight:600;border-bottom-color:var(--accent)}
+.pill{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:19px;padding:0 6px;
+      border-radius:10px;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;
+      background:var(--accent-bg);color:var(--accent);border:1px solid transparent}
+.pill.warn{background:var(--warn-bg);color:var(--warn)}
+.pill.bad{background:var(--bad);color:#fff}
+.pill.neutral{background:var(--line);color:var(--muted)}
+.topbar .right{margin-left:auto;display:flex;align-items:center;gap:10px}
+
+main{flex:1;padding:22px 24px;max-width:1400px;width:100%;margin:0 auto}
+h1.page{font-size:28px;font-weight:600;letter-spacing:-.02em;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 20px;font-size:13px}
+
+/* ---- panels & tables ---- */
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:7px;margin-bottom:18px;overflow:hidden}
+.panel>h2{font-size:13px;font-weight:600;margin:0;padding:11px 14px;border-bottom:1px solid var(--border);
+          display:flex;align-items:center;gap:8px}
+.panel>h2 .muted{font-weight:400;font-size:12px}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:8px 14px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;
+   color:var(--muted);font-weight:600;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:9px 14px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:top}
+tbody tr:last-child td{border-bottom:0}
+tr.row:hover{background:var(--sunken)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+td.when{color:var(--muted);white-space:nowrap;text-align:right}
+.mono{font-family:var(--mono);font-size:12px}
+a.id{font-family:var(--mono);font-size:12px;color:var(--accent);text-decoration:none;cursor:pointer}
+a.id:hover{text-decoration:underline}
+
+/* ---- state badges ---- */
+.badge{display:inline-block;padding:1px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap}
+.b-succeeded{background:var(--ok-bg);color:var(--ok)}
+.b-dead,.b-cancelled{background:var(--bad-bg);color:var(--bad)}
+.b-running{background:var(--run-bg);color:var(--run)}
+.b-retrying{background:var(--warn-bg);color:var(--warn)}
+.b-enqueued{background:var(--accent-bg);color:var(--accent)}
+.b-scheduled{background:var(--line);color:var(--muted)}
+
+/* ---- jobs layout: sidebar of states, Hangfire-style ---- */
+.split{display:grid;grid-template-columns:210px 1fr;gap:18px;align-items:start}
+@media (max-width:860px){.split{grid-template-columns:1fr}}
+.states{background:var(--panel);border:1px solid var(--border);border-radius:7px;overflow:hidden}
+.states button{display:flex;width:100%;align-items:center;justify-content:space-between;gap:8px;
+   background:none;border:0;border-bottom:1px solid var(--line);padding:10px 13px;
+   font:inherit;color:var(--text);cursor:pointer;text-align:left}
+.states button:last-child{border-bottom:0}
+.states button:hover{background:var(--sunken)}
+.states button[aria-selected=true]{background:var(--sunken);font-weight:600;
+   box-shadow:inset 3px 0 0 var(--accent)}
+
+/* ---- controls ---- */
+.toolbar{display:flex;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.btn{font:inherit;font-size:13px;padding:5px 11px;border-radius:6px;border:1px solid var(--border);
+     background:var(--panel);color:var(--text);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.btn:hover:not(:disabled){border-color:var(--faint)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.primary:not(:disabled){background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.danger:not(:disabled){color:var(--bad);border-color:var(--bad)}
+input,select{font:inherit;font-size:13px;padding:5px 9px;border-radius:6px;
+             border:1px solid var(--border);background:var(--panel);color:var(--text)}
+.perpage{display:flex;align-items:center;gap:0;margin-left:auto}
+.perpage span{color:var(--muted);font-size:12px;margin-right:8px}
+.perpage button{border:1px solid var(--border);background:var(--panel);color:var(--accent);
+   padding:4px 10px;font:inherit;font-size:12px;cursor:pointer;margin-left:-1px}
+.perpage button:first-of-type{border-radius:6px 0 0 6px}
+.perpage button:last-of-type{border-radius:0 6px 6px 0}
+.perpage button[aria-selected=true]{background:var(--line);color:var(--text);font-weight:600}
+
+/* ---- overview tiles ---- */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+.tile{background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:14px 16px;text-align:center}
+.tile .n{font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.tile .k{font-size:12px;color:var(--muted);margin-top:2px}
+
+/* ---- graph ---- */
+.graph{padding:14px}
+.graph svg{width:100%;height:170px;display:block;overflow:visible}
+.gridline{stroke:var(--line);stroke-width:1}
+.axis{fill:var(--faint);font-size:10px;font-family:var(--mono)}
+.tip{position:fixed;pointer-events:none;background:#1b1f24;color:#fff;border-radius:5px;padding:7px 10px;
+     font-size:12px;line-height:1.45;z-index:50;display:none;box-shadow:0 4px 14px #0004}
+.tip b{display:block;margin-bottom:3px;font-weight:600}
+.tip i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;font-style:normal}
+
+/* ---- job detail ---- */
+.timeline{padding:0 14px 14px}
+.tl{border:1px solid var(--border);border-radius:6px;margin-top:10px;overflow:hidden}
+.tl header{display:flex;align-items:baseline;gap:10px;padding:9px 13px;background:var(--sunken)}
+.tl header .st{font-weight:600;font-size:14px}
+.tl header .when{margin-left:auto;color:var(--muted);font-size:12px}
+.tl .reason{padding:9px 13px;border-top:1px solid var(--line);font-family:var(--mono);font-size:12px;
+            white-space:pre-wrap;word-break:break-word}
+.tl.s-succeeded{border-color:var(--ok)} .tl.s-succeeded .st{color:var(--ok)}
+.tl.s-dead,.tl.s-cancelled{border-color:var(--bad)} .tl.s-dead .st,.tl.s-cancelled .st{color:var(--bad)}
+.tl.s-running{border-color:var(--run)} .tl.s-running .st{color:var(--run)}
+.tl.s-retrying{border-color:var(--warn)} .tl.s-retrying .st{color:var(--warn)}
+.tl.s-enqueued{border-color:var(--accent)} .tl.s-enqueued .st{color:var(--accent)}
+pre{background:var(--sunken);border:1px solid var(--border);border-radius:6px;padding:11px 13px;
+    overflow:auto;font-family:var(--mono);font-size:12px;margin:0}
+dl.kv{display:grid;grid-template-columns:150px 1fr;gap:0;margin:0}
+dl.kv dt{padding:8px 14px;color:var(--muted);font-size:12px;border-bottom:1px solid var(--line)}
+dl.kv dd{padding:8px 14px;margin:0;font-family:var(--mono);font-size:12px;border-bottom:1px solid var(--line);
+         word-break:break-all}
+dl.kv dt:last-of-type,dl.kv dd:last-of-type{border-bottom:0}
+.back{background:none;border:0;color:var(--accent);cursor:pointer;font:inherit;font-size:13px;padding:0;margin-bottom:12px}
+
+/* ---- misc ---- */
+.cron{font-family:var(--mono);font-size:12px;background:var(--bad-bg);color:var(--bad);padding:1px 7px;border-radius:4px}
+.empty{padding:34px 14px;text-align:center;color:var(--muted)}
+.err-banner{background:var(--bad-bg);color:var(--bad);border:1px solid var(--bad);
+            border-radius:7px;padding:11px 14px;margin-bottom:18px}
+.note{background:var(--warn-bg);color:var(--warn);border:1px solid currentColor;border-radius:7px;
+      padding:11px 14px;margin-bottom:18px;font-size:13px}
+.more{background:none;border:0;color:var(--accent);cursor:pointer;font:inherit;font-size:12px;padding:0}
+footer{border-top:1px solid var(--border);background:var(--panel);padding:11px 24px;
+       color:var(--muted);font-size:12px;display:flex;gap:18px;flex-wrap:wrap}
+footer .mono{color:var(--faint)}
+.hide{display:none!important}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 100 16A8 8 0 008 0zM1.5 8a6.5 6.5 0 1113 0 6.5 6.5 0 01-13 0zm7.25-3.5a.75.75 0 00-1.5 0v3.75c0 .28.16.54.4.67l2.5 1.25a.75.75 0 10.67-1.34L8.75 7.79V4.5z"/></svg>
+    jobsync
+  </div>
+  <nav>
+    <button data-tab="overview" aria-selected="true">Overview</button>
+    <button data-tab="jobs">Jobs <span class="pill" id="n-jobs">0</span><span class="pill bad hide" id="n-failed">0</span></button>
+    <button data-tab="retries">Retries <span class="pill warn" id="n-retries">0</span></button>
+    <button data-tab="recurring">Recurring <span class="pill neutral" id="n-recurring">0</span></button>
+    <button data-tab="servers">Servers <span class="pill neutral" id="n-servers">0</span></button>
+  </nav>
+  <div class="right">
+    <button class="btn" id="refresh">Refresh</button>
+  </div>
+</div>
+
+<main>
+  <div id="error" class="err-banner hide"></div>
+
+  <!-- Overview -->
+  <section id="tab-overview">
+    <h1 class="page">Overview</h1>
+    <p class="sub" id="ov-sub"></p>
+    <div class="tiles" id="tiles"></div>
+    <div class="panel">
+      <h2>Throughput <span class="muted" id="g-note"></span>
+        <span class="perpage" id="window">
+          <button data-window="1h" data-bucket="1m">Hour</button>
+          <button data-window="6h" data-bucket="5m" aria-selected="true">6 hours</button>
+          <button data-window="24h" data-bucket="15m">Day</button>
+          <button data-window="168h" data-bucket="1h">Week</button>
+        </span>
+      </h2>
+      <div class="graph" id="graph"></div>
+    </div>
+    <div class="panel">
+      <h2>Queues</h2>
+      <table><thead><tr><th>Queue</th><th class="num">Enqueued</th><th class="num">Running</th>
+        <th class="num">Oldest waiting</th><th></th></tr></thead>
+      <tbody id="queues"></tbody></table>
+    </div>
+  </section>
+
+  <!-- Jobs -->
+  <section id="tab-jobs" class="hide">
+    <div id="jobs-list">
+      <h1 class="page" id="jobs-title">Jobs</h1>
+      <p class="sub" id="jobs-sub"></p>
+      <div class="split">
+        <div class="states" id="states"></div>
+        <div class="panel">
+          <div class="toolbar">
+            <button class="btn primary" id="requeue" disabled>Requeue</button>
+            <button class="btn danger" id="delete" disabled>Delete</button>
+            <input id="f-queue" placeholder="queue" size="9">
+            <input id="f-kind" placeholder="kind" size="12">
+            <input id="f-search" placeholder="search" size="12">
+            <button class="btn" id="apply">Filter</button>
+          </div>
+          <div class="toolbar">
+            <span class="perpage" id="perpage"><span>Per page:</span></span>
+            <button class="btn" id="prev">Prev</button>
+            <button class="btn" id="next">Next</button>
+            <span class="muted" id="page" style="font-size:12px"></span>
+          </div>
+          <table>
+            <thead><tr>
+              <th style="width:30px"><input type="checkbox" id="all"></th>
+              <th>Id</th><th>State</th><th>Job</th><th>Reason</th>
+              <th class="num">Attempt</th><th class="num">Created</th>
+            </tr></thead>
+            <tbody id="jobs"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div id="jobs-detail" class="hide"></div>
+  </section>
+
+  <!-- Retries -->
+  <section id="tab-retries" class="hide">
+    <h1 class="page">Retries</h1>
+    <p class="sub">Jobs that failed and are waiting to run again.</p>
+    <div class="panel">
+      <table><thead><tr><th>Id</th><th>State</th><th>Job</th><th>Reason</th>
+        <th class="num">Retry</th><th class="num">Created</th></tr></thead>
+      <tbody id="retries"></tbody></table>
+    </div>
+  </section>
+
+  <!-- Recurring -->
+  <section id="tab-recurring" class="hide">
+    <h1 class="page">Recurring jobs</h1>
+    <p class="sub">Schedules are stored by name, so re-registering one on deploy updates it in place.</p>
+    <div class="panel">
+      <table><thead><tr><th>Id</th><th>Cron</th><th>Time zone</th><th>Job</th>
+        <th class="num">Next run</th><th class="num">Last run</th><th></th></tr></thead>
+      <tbody id="recurring"></tbody></table>
+    </div>
+  </section>
+
+  <!-- Servers -->
+  <section id="tab-servers" class="hide">
+    <h1 class="page">Servers</h1>
+    <p class="sub">Servers reporting a heartbeat. One that stops is removed automatically when its lease expires.</p>
+    <div class="panel">
+      <table><thead><tr><th>Id</th><th>Host</th><th>Queues</th>
+        <th class="num">Workers</th><th class="num">Started</th><th class="num">Heartbeat</th></tr></thead>
+      <tbody id="servers"></tbody></table>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span>jobsync</span>
+  <span class="mono" id="f-storage"></span>
+  <span class="mono" id="f-time"></span>
+  <span class="mono" id="f-gen"></span>
+</footer>
+<div class="tip" id="tip"></div>
+
+<script>
+const BASE = window.JOBSYNC_BASE || "";
+const api = (p) => BASE + "/api" + p;
+const $ = (id) => document.getElementById(id);
+const STATES = ["enqueued","running","scheduled","retrying","succeeded","dead","cancelled"];
+
+let caps = {}, overview = null;
+let state = "", offset = 0, limit = 20, total = 0;
+let gWindow = "6h", gBucket = "5m";
+const selected = new Set();
+
+/* ---------- formatting ---------- */
+const fmt = {
+  n: (v) => (v ?? 0).toLocaleString(),
+  time(s){ if(!s) return "—"; const d = new Date(s); return isNaN(d) ? "—" : d.toLocaleString(); },
+  dur(ms){
+    const neg = ms < 0; ms = Math.abs(ms);
+    const s = Math.round(ms/1000);
+    let out;
+    if (s < 60) out = s + "s";
+    else if (s < 3600) out = Math.round(s/60) + "m";
+    else if (s < 86400) out = Math.round(s/3600) + "h";
+    else out = Math.round(s/86400) + "d";
+    return neg ? "-" + out : out;
+  },
+  // Relative time reads faster than a timestamp when you are scanning a list for
+  // the thing that just broke.
+  rel(s){
+    if (!s) return "—";
+    const d = Math.round((Date.now() - new Date(s).getTime())/1000);
+    if (Math.abs(d) < 5) return "just now";
+    return d > 0 ? fmt.dur(d*1000) + " ago" : "in " + fmt.dur(-d*1000);
+  },
+};
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+
+/* ---------- transport ---------- */
+async function get(path){
+  const r = await fetch(api(path), {headers:{Accept:"application/json"}});
+  const b = await r.json().catch(() => ({error:r.statusText}));
+  if (!r.ok) throw new Error(b.error || ("HTTP " + r.status));
+  return b;
+}
+async function post(path, payload){
+  const r = await fetch(api(path), {method:"POST", headers:{"Content-Type":"application/json"},
+                                    body:JSON.stringify(payload || {})});
+  const b = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(b.error || ("HTTP " + r.status));
+  return b;
+}
+function showError(e){
+  const el = $("error");
+  el.classList.toggle("hide", !e);
+  if (e) el.textContent = e;
+}
+
+/* ---------- overview ---------- */
+async function loadOverview(){
+  const d = await get(`/overview?window=${gWindow}&bucket=${gBucket}`);
+  overview = d; caps = d.capabilities || {};
+  const c = d.counts;
+
+  // The nav pill is the Enqueued count, the same number the sidebar's Enqueued
+  // row shows. An aggregate here would put two different figures under the word
+  // "Jobs" on one screen.
+  $("n-jobs").textContent = fmt.n(c.enqueued);
+  $("n-retries").textContent = fmt.n(c.retrying);
+  $("n-servers").textContent = fmt.n((d.servers || []).length);
+  const failed = $("n-failed");
+  failed.textContent = fmt.n(c.dead);
+  failed.classList.toggle("hide", !c.dead);
+
+  $("f-storage").textContent = d.storage || "";
+  $("f-time").textContent = new Date().toLocaleTimeString();
+  $("f-gen").textContent = "generated in " + (d.generated_ms ?? 0).toFixed(2) + "ms";
+
+  $("f-search").classList.toggle("hide", !caps.search);
+  $("ov-sub").textContent =
+    `${fmt.n(c.succeeded)} succeeded · ${fmt.n(c.dead)} dead · ${(d.servers||[]).length} server(s) reporting`;
+
+  $("tiles").innerHTML = [
+    ["enqueued","Enqueued"],["running","Running"],["scheduled","Scheduled"],
+    ["retrying","Retrying"],["succeeded","Succeeded"],["dead","Dead"],
+  ].map(([k,label]) =>
+    `<div class="tile"><div class="n" style="color:var(--${tone(k)})">${fmt.n(c[k])}</div>
+     <div class="k">${label}</div></div>`).join("");
+
+  drawGraph(d.throughput, caps.throughput);
+  renderQueues(d.queues || []);
+  renderServers(d.servers || []);
+  renderStates(c);
+}
+const tone = (s) => ({succeeded:"ok",dead:"bad",cancelled:"bad",running:"run",
+                      retrying:"warn",enqueued:"accent",scheduled:"muted"})[s] || "text";
+
+function renderQueues(qs){
+  $("queues").innerHTML = qs.length ? qs.map(q => `
+    <tr class="row"><td class="mono">${esc(q.name)}
+        ${q.paused ? '<span class="badge b-retrying">paused</span>' : ""}</td>
+      <td class="num">${fmt.n(q.enqueued)}</td><td class="num">${fmt.n(q.running)}</td>
+      <td class="num">${q.oldest_enqueued_ms ? fmt.dur(q.oldest_enqueued_ms) : "—"}</td>
+      <td style="text-align:right">${caps.pause ? `<button class="btn" data-queue="${esc(q.name)}"
+        data-paused="${q.paused?1:0}">${q.paused?"Resume":"Pause"}</button>` : ""}</td></tr>`).join("")
+    : `<tr><td colspan="5" class="empty">No queues yet</td></tr>`;
+  bind("[data-queue]", async b => {
+    await post(`/queues/${encodeURIComponent(b.dataset.queue)}/${b.dataset.paused==="1"?"resume":"pause"}`);
+    refresh();
+  });
+}
+
+function renderServers(ss){
+  $("servers").innerHTML = ss.length ? ss.map(s => `
+    <tr class="row"><td class="mono">${esc(s.id)}</td><td>${esc(s.hostname)}</td>
+      <td class="mono">${esc((s.queues||[]).join(", "))}</td>
+      <td class="num">${s.concurrency}</td>
+      <td class="num when">${fmt.rel(s.started_at)}</td>
+      <td class="num when">${fmt.rel(s.heartbeat_at)}</td></tr>`).join("")
+    : `<tr><td colspan="6" class="empty">No servers are reporting a heartbeat</td></tr>`;
+}
+
+function renderStates(c){
+  $("states").innerHTML = [["","All"]].concat(STATES.map(s => [s, s[0].toUpperCase()+s.slice(1)]))
+    .map(([k,label]) => `<button data-state="${k}" aria-selected="${state===k}">
+        <span>${label}</span>
+        <span class="pill ${k==="dead"&&c.dead?"bad":"neutral"}">${k ? fmt.n(c[k]) : fmt.n(
+          STATES.reduce((a,s)=>a+c[s],0))}</span></button>`).join("");
+  bind("[data-state]", b => { state = b.dataset.state; offset = 0; loadJobs(); });
+}
+
+/* ---------- graph: stacked area, no library ---------- */
+// Drivers return only buckets that contain something. Plotting those directly
+// draws a straight line between two distant points and reads as a smooth decline
+// when the truth is "two samples, nothing in between" — so the empty buckets are
+// filled with zeros before anything is drawn.
+function fillBuckets(buckets, windowMs, bucketMs){
+  const end = Date.now();
+  const start = end - windowMs;
+  const have = new Map();
+  for (const b of buckets) {
+    have.set(Math.floor(new Date(b.At).getTime()/bucketMs), b);
+  }
+  const out = [];
+  for (let t = Math.floor(start/bucketMs); t <= Math.floor(end/bucketMs); t++) {
+    const b = have.get(t);
+    out.push(b || {At:new Date(t*bucketMs).toISOString(), Succeeded:0, Failed:0});
+  }
+  return out;
+}
+
+const DUR = {"1m":60e3,"5m":300e3,"15m":900e3,"1h":3600e3,"6h":6*3600e3,
+             "24h":24*3600e3,"168h":168*3600e3};
+
+function drawGraph(raw, supported){
+  const el = $("graph"), note = $("g-note");
+  if (!supported){ el.innerHTML = ""; note.textContent = "— not available on this driver"; return; }
+
+  const buckets = fillBuckets(raw || [], DUR[gWindow], DUR[gBucket]);
+  if (!buckets.length){ el.innerHTML = `<div class="empty">Nothing finished in this window</div>`;
+                        note.textContent = ""; return; }
+
+  const W = 1000, H = 150, PAD = 28;
+  const max = Math.max(...buckets.map(b => (b.Succeeded||0)+(b.Failed||0)), 1);
+  const x = (i) => PAD + (i/(Math.max(buckets.length-1,1))) * (W - PAD - 8);
+  const y = (v) => H - (v/max) * (H - 12);
+
+  const area = (pick) => {
+    const pts = buckets.map((b,i) => `${x(i)},${y(pick(b))}`);
+    return `M${x(0)},${H} L${pts.join(" L")} L${x(buckets.length-1)},${H} Z`;
+  };
+  const total = (b) => (b.Succeeded||0)+(b.Failed||0);
+
+  const ticks = [0, max/2, max].map(v =>
+    `<line class="gridline" x1="${PAD}" y1="${y(v)}" x2="${W-8}" y2="${y(v)}"/>
+     <text class="axis" x="0" y="${y(v)+3}">${Math.round(v)}</text>`).join("");
+
+  const labels = buckets.map((b,i) =>
+    (i % Math.max(1, Math.ceil(buckets.length/7)) === 0)
+      ? `<text class="axis" x="${x(i)}" y="${H+14}" text-anchor="middle">${
+          new Date(b.At).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}</text>` : "").join("");
+
+  el.innerHTML = `<svg viewBox="0 -6 ${W} ${H+24}" preserveAspectRatio="none">
+    ${ticks}
+    <path d="${area(total)}" fill="var(--ok)" opacity=".28"/>
+    <path d="${area(b => b.Failed||0)}" fill="var(--bad)" opacity=".75"/>
+    <polyline points="${buckets.map((b,i)=>`${x(i)},${y(total(b))}`).join(" ")}"
+              fill="none" stroke="var(--ok)" stroke-width="1.5"/>
+    ${labels}
+    ${buckets.map((b,i)=>`<rect x="${x(i)-6}" y="-6" width="12" height="${H+6}" fill="transparent"
+       data-i="${i}" style="cursor:crosshair"/>`).join("")}
+  </svg>`;
+
+  const sum = buckets.reduce((a,b) => a+total(b), 0);
+  const bad = buckets.reduce((a,b) => a+(b.Failed||0), 0);
+  note.textContent = sum
+    ? `— ${fmt.n(sum)} finished, ${fmt.n(bad)} failed`
+    : "— nothing finished in this window";
+
+  const tip = $("tip");
+  el.querySelectorAll("rect[data-i]").forEach(r => {
+    r.onmouseenter = (e) => {
+      const b = buckets[+r.dataset.i];
+      tip.innerHTML = `<b>${fmt.time(b.At)}</b>
+        <i style="background:var(--ok)"></i>Succeeded: ${fmt.n(b.Succeeded)}<br>
+        <i style="background:var(--bad)"></i>Failed: ${fmt.n(b.Failed)}`;
+      tip.style.display = "block";
+    };
+    r.onmousemove = (e) => { tip.style.left = (e.clientX+14)+"px"; tip.style.top = (e.clientY+14)+"px"; };
+    r.onmouseleave = () => { tip.style.display = "none"; };
+  });
+}
+
+/* ---------- jobs ---------- */
+function jobQuery(extra){
+  const p = new URLSearchParams();
+  if (state) p.set("state", state);
+  const add = (k,id) => { const v = $(id).value.trim(); if (v) p.set(k,v); };
+  add("queue","f-queue"); add("kind","f-kind");
+  if (caps.search) add("search","f-search");
+  Object.entries(extra || {}).forEach(([k,v]) => p.set(k,v));
+  return p;
+}
+
+async function loadJobs(){
+  const p = jobQuery({offset, limit});
+  let d;
+  try { d = await get("/jobs?" + p); }
+  catch (e) { showError(e.message); return; }
+  showError(null);
+
+  total = d.total || 0;
+  selected.clear(); syncActions(); $("all").checked = false;
+  $("jobs-title").textContent = state ? state[0].toUpperCase()+state.slice(1)+" jobs" : "Jobs";
+  $("jobs-sub").textContent =
+    `${fmt.n(total)} matching · as of ${new Date().toLocaleTimeString()} — press Refresh to update`;
+
+  $("jobs").innerHTML = (d.jobs||[]).length ? d.jobs.map(rowFor).join("")
+    : `<tr><td colspan="7" class="empty">No jobs match this filter</td></tr>`;
+  wireRows();
+
+  $("page").textContent = total ? `${offset+1}–${Math.min(offset+limit,total)} of ${fmt.n(total)}` : "";
+  $("prev").disabled = offset === 0;
+  $("next").disabled = offset + limit >= total;
+  renderPerPage();
+}
+
+function rowFor(j){
+  // The reason column is why this table beats a tile grid during an incident:
+  // the failure message is visible without opening anything.
+  const reason = j.last_error
+    ? `<span class="mono">${esc(j.last_error.split("\n")[0].slice(0,90))}</span>` : "";
+  return `<tr class="row" data-row="${esc(j.id)}">
+    <td><input type="checkbox" data-pick="${esc(j.id)}"></td>
+    <td><a class="id" data-open="${esc(j.id)}">${esc(j.id.slice(0,10))}…</a></td>
+    <td><span class="badge b-${j.state}">${j.state}</span></td>
+    <td class="mono">${esc(j.kind)}<div class="muted" style="color:var(--muted)">${esc(j.queue)}</div></td>
+    <td>${reason}</td>
+    <td class="num">${j.attempt}/${j.max_attempts}</td>
+    <td class="num when">${fmt.rel(j.created_at)}</td></tr>`;
+}
+
+function wireRows(){
+  bind("[data-pick]", null);
+  document.querySelectorAll("[data-pick]").forEach(cb => {
+    cb.onclick = (e) => { e.stopPropagation();
+      cb.checked ? selected.add(cb.dataset.pick) : selected.delete(cb.dataset.pick); syncActions(); };
+  });
+  document.querySelectorAll("[data-open]").forEach(a => {
+    a.onclick = (e) => { e.stopPropagation(); openDetail(a.dataset.open); };
+  });
+}
+
+function renderPerPage(){
+  const el = $("perpage");
+  el.innerHTML = `<span>Per page:</span>` + [10,20,50,100,500].map(n =>
+    `<button data-limit="${n}" aria-selected="${limit===n}">${n}</button>`).join("");
+  bind("[data-limit]", b => { limit = +b.dataset.limit; offset = 0; loadJobs(); });
+}
+
+function syncActions(){
+  const n = selected.size;
+  $("requeue").disabled = !n; $("delete").disabled = !n;
+  $("requeue").textContent = n ? `Requeue ${n}` : "Requeue";
+  $("delete").textContent = n ? `Delete ${n}` : "Delete";
+}
+
+/* ---------- job detail ---------- */
+async function openDetail(id){
+  let d;
+  try { d = await get("/jobs/" + encodeURIComponent(id)); }
+  catch (e) { showError(e.message); return; }
+  const j = d.job, ts = d.transitions || [];
+
+  // Deltas between states turn the history into a latency story: how long it
+  // waited, how long it ran, how long until the retry.
+  const tl = ts.map((t,i) => {
+    const prev = i ? new Date(ts[i-1].at).getTime() : null;
+    const delta = prev !== null ? ` (+${fmt.dur(new Date(t.at).getTime()-prev)})` : "";
+    return `<div class="tl s-${t.state}">
+      <header><span class="st">${t.state}</span>
+        <span class="when">${fmt.time(t.at)}${delta}</span></header>
+      ${t.reason ? `<div class="reason">${esc(t.reason)}</div>` : ""}</div>`;
+  }).join("");
+
+  $("jobs-list").classList.add("hide");
+  const el = $("jobs-detail");
+  el.classList.remove("hide");
+  el.innerHTML = `
+    <button class="back" id="back">← Back to jobs</button>
+    <h1 class="page mono" style="font-size:22px">${esc(j.kind)}</h1>
+    <p class="sub mono">${esc(j.id)} <span class="badge b-${j.state}">${j.state}</span></p>
+    <div class="toolbar panel" style="border-radius:7px;margin-bottom:18px;border-bottom:1px solid var(--border)">
+      <button class="btn primary" id="d-requeue">Requeue</button>
+      <button class="btn danger" id="d-delete">Delete</button>
+    </div>
+    <div class="panel"><h2>Details</h2>
+      <dl class="kv">
+        <dt>Queue</dt><dd>${esc(j.queue)}</dd>
+        <dt>Attempt</dt><dd>${j.attempt} of ${j.max_attempts}</dd>
+        <dt>Priority</dt><dd>${j.priority}</dd>
+        <dt>Created</dt><dd>${fmt.time(j.created_at)}</dd>
+        <dt>Scheduled</dt><dd>${fmt.time(j.scheduled_at)}</dd>
+        ${j.finished_at ? `<dt>Finished</dt><dd>${fmt.time(j.finished_at)}</dd>` : ""}
+        ${j.owner ? `<dt>Owner</dt><dd>${esc(j.owner)}</dd>` : ""}
+        ${j.tags?.length ? `<dt>Tags</dt><dd>${esc(j.tags.join(", "))}</dd>` : ""}
+      </dl></div>
+    <div class="panel"><h2>Payload</h2>
+      <div style="padding:14px"><pre>${esc(pretty(j.payload))}</pre></div></div>
+    ${j.last_error ? `<div class="panel"><h2 style="color:var(--bad)">Last error</h2>
+      <div style="padding:14px"><pre style="color:var(--bad)">${esc(j.last_error)}</pre></div></div>` : ""}
+    <div class="panel"><h2>State history</h2>
+      <div class="timeline">${tl || '<div class="empty">No transitions recorded</div>'}</div></div>`;
+
+  $("back").onclick = closeDetail;
+  $("d-requeue").onclick = async () => { await post("/jobs/requeue", {ids:[j.id]}); closeDetail(); refresh(); };
+  $("d-delete").onclick = async () => {
+    if (!confirm("Delete this job? This cannot be undone.")) return;
+    await post("/jobs/delete", {ids:[j.id]}); closeDetail(); refresh();
+  };
+}
+function closeDetail(){ $("jobs-detail").classList.add("hide"); $("jobs-list").classList.remove("hide"); }
+function pretty(s){ if(!s) return "(empty)";
+  try { return JSON.stringify(JSON.parse(s), null, 2); } catch { return s; } }
+
+/* ---------- retries / recurring ---------- */
+async function loadRetries(){
+  const d = await get("/jobs?state=retrying&limit=100");
+  $("retries").innerHTML = (d.jobs||[]).length ? d.jobs.map(j => `
+    <tr class="row"><td><a class="id" data-open="${esc(j.id)}">${esc(j.id.slice(0,10))}…</a></td>
+      <td><span class="badge b-${j.state}">${j.state}</span></td>
+      <td class="mono">${esc(j.kind)}</td>
+      <td class="mono">${esc((j.last_error||"").split("\n")[0].slice(0,80))}</td>
+      <td class="num when">${fmt.rel(j.scheduled_at)}</td>
+      <td class="num when">${fmt.rel(j.created_at)}</td></tr>`).join("")
+    : `<tr><td colspan="6" class="empty">Nothing is waiting to retry</td></tr>`;
+  document.querySelectorAll("#retries [data-open]").forEach(a => {
+    a.onclick = () => { showTab("jobs"); openDetail(a.dataset.open); };
+  });
+}
+
+async function loadRecurring(){
+  const d = await get("/schedules");
+  const ss = d.schedules || [];
+  $("n-recurring").textContent = fmt.n(ss.length);
+  $("recurring").innerHTML = ss.length ? ss.map(s => `
+    <tr class="row"><td class="mono">${esc(s.id)}
+        ${s.paused ? '<span class="badge b-retrying">paused</span>' : ""}</td>
+      <td><span class="cron">${esc(s.cron)}</span></td>
+      <td class="muted" style="color:var(--muted)">${esc(s.timezone)}</td>
+      <td class="mono">${esc(s.kind)}</td>
+      <td class="num when">${s.paused ? "—" : fmt.rel(s.next_run)}</td>
+      <td class="num">${s.last_run
+        ? `<span class="badge b-succeeded">${fmt.rel(s.last_run)}</span>`
+        : `<span class="badge b-scheduled">never</span>`}</td>
+      <td style="text-align:right;white-space:nowrap">
+        <button class="btn" data-trigger="${esc(s.id)}">Trigger</button>
+        <button class="btn" data-sched="${esc(s.id)}" data-paused="${s.paused?1:0}">${s.paused?"Resume":"Pause"}</button>
+      </td></tr>`).join("")
+    : `<tr><td colspan="7" class="empty">No recurring jobs registered</td></tr>`;
+
+  bind("[data-sched]", async b => {
+    await post(`/schedules/${encodeURIComponent(b.dataset.sched)}/${b.dataset.paused==="1"?"resume":"pause"}`);
+    loadRecurring();
+  });
+  bind("[data-trigger]", async b => {
+    await post(`/schedules/${encodeURIComponent(b.dataset.trigger)}/trigger`);
+    loadRecurring(); loadOverview();
+  });
+}
+
+/* ---------- plumbing ---------- */
+function bind(sel, fn){
+  if (!fn) return;
+  document.querySelectorAll(sel).forEach(el => {
+    el.onclick = async () => { try { await fn(el); } catch (e) { showError(e.message); } };
+  });
+}
+
+function showTab(name){
+  for (const b of document.querySelectorAll(".topbar nav button"))
+    b.setAttribute("aria-selected", String(b.dataset.tab === name));
+  for (const id of ["overview","jobs","retries","recurring","servers"])
+    $("tab-"+id).classList.toggle("hide", id !== name);
+  if (name !== "jobs") closeDetail();
+  localStorage.setItem("jobsync.tab", name);
+}
+function currentTab(){
+  return document.querySelector(".topbar nav button[aria-selected=true]").dataset.tab;
+}
+
+// background=true is the ten-second tick. It refreshes counters and the graph but
+// never the jobs table: rows reordering under the cursor made a click land on a
+// different job than the one that was read, which is how an operator deletes the
+// wrong thing.
+async function refresh(background){
+  try {
+    showError(null);
+    await loadOverview();
+    const t = currentTab();
+    const onDetail = !$("jobs-detail").classList.contains("hide");
+    if (t === "jobs" && !onDetail && !background) await loadJobs();
+    if (t === "retries" && !background) await loadRetries();
+    // Always: the nav pill's count comes from here, and leaving it stale at zero
+    // while sitting on another tab is a lie about whether anything is scheduled.
+    await loadRecurring();
+  } catch (e) { showError(e.message); }
+}
+
+for (const b of document.querySelectorAll(".topbar nav button"))
+  b.onclick = () => { showTab(b.dataset.tab); refresh(); };
+$("refresh").onclick = refresh;
+$("apply").onclick = () => { offset = 0; loadJobs(); };
+$("prev").onclick = () => { offset = Math.max(0, offset-limit); loadJobs(); };
+$("next").onclick = () => { offset += limit; loadJobs(); };
+$("all").onclick = () => {
+  selected.clear();
+  document.querySelectorAll("[data-pick]").forEach(cb => {
+    cb.checked = $("all").checked; if (cb.checked) selected.add(cb.dataset.pick);
+  });
+  syncActions();
+};
+$("requeue").onclick = async () => {
+  try { await post("/jobs/requeue", {ids:[...selected]}); await refresh(); }
+  catch (e) { showError(e.message); }
+};
+$("delete").onclick = async () => {
+  if (!confirm(`Delete ${selected.size} job(s)? This cannot be undone.`)) return;
+  try { await post("/jobs/delete", {ids:[...selected]}); await refresh(); }
+  catch (e) { showError(e.message); }
+};
+bind("#window button", b => {
+  gWindow = b.dataset.window; gBucket = b.dataset.bucket;
+  document.querySelectorAll("#window button").forEach(x =>
+    x.setAttribute("aria-selected", String(x === b)));
+  loadOverview();
+});
+
+showTab(localStorage.getItem("jobsync.tab") || "overview");
+renderPerPage();
+refresh();
+// Ten seconds: often enough to watch a deploy drain, rare enough not to fight
+// an operator who is reading a stack trace.
+setInterval(() => { if (!document.hidden) refresh(true); }, 10000);
+</script>
+</body>
+</html>

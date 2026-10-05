@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS jobsync_paused_queues (
+    name      VARCHAR(255) NOT NULL PRIMARY KEY,
+    paused_at DATETIME(6)  NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4

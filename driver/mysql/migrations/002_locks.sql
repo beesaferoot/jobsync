@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS jobsync_locks (
+    lock_key   VARCHAR(255) NOT NULL PRIMARY KEY,
+    token      VARCHAR(64)  NOT NULL,
+    expires_at DATETIME(6)  NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4

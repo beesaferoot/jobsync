@@ -1,0 +1,50 @@
+# Backing services for the conformance suite:
+#   docker compose up -d
+#   go test ./...
+#
+# Tuned for tests, not production: everything is in tmpfs, fsync is off, and the
+# data is gone when the container stops. That is the point — a suite that leaves
+# state behind passes on the second run for the wrong reason.
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_PASSWORD: jobsync
+      POSTGRES_USER: jobsync
+      POSTGRES_DB: jobsync
+    command: ["postgres", "-c", "fsync=off", "-c", "full_page_writes=off"]
+    ports: ["5433:5432"]
+    tmpfs: ["/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jobsync"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports: ["6380:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  # 8.4 LTS. The floor is 8.0 for SKIP LOCKED; pin the floor in CI too so a
+  # query that silently needs 8.4 does not ship.
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: jobsync
+      MYSQL_DATABASE: jobsync
+    # UTC session timezone is deliberate: the ScheduledAtKeepsItsInstant test
+    # must fail on a driver that relies on the server and the client agreeing.
+    command: ["--default-time-zone=+00:00"]
+    ports: ["3307:3306"]
+    tmpfs: ["/var/lib/mysql"]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-pjobsync"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
