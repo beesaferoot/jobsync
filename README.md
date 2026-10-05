@@ -1,32 +1,38 @@
 # jobsync
 
-Background jobs for Go, with a Hangfire-style API, **pluggable storage**, and a
-unified dashboard that looks the same whichever driver you run.
+**Background jobs for Go that you can actually see.**
+
+One library, one dashboard, and your choice of Postgres, MySQL or Redis — with
+the same API and the same UI whichever you pick.
+
+![The jobsync dashboard](docs/screenshots/overview.png)
 
 ```go
-type WelcomeArgs struct {
-    UserID int    `json:"user_id"`
-    Email  string `json:"email"`
-}
-
-// Declare once, at package level. Carries no dependencies, so anything
-// that enqueues can reference it.
 var SendWelcome = jobsync.Declare[WelcomeArgs]("email.welcome")
+
+SendWelcome.Enqueue(ctx, client, WelcomeArgs{Email: "new@user.com"})
 ```
 
-```go
-// Enqueue side — needs only a Client.
-SendWelcome.Enqueue(ctx, client, WelcomeArgs{UserID: 7, Email: "a@b.com"})
+That's the whole enqueue path. The dashboard above is one line to mount.
 
-// Handler side — bound at wiring time, where dependencies exist.
-SendWelcome.Handle(srv, func(ctx context.Context, a WelcomeArgs) error {
-    return mailer.Send(ctx, a.Email)
-})
-```
+---
 
-No `Kind()` method on your args type, no worker struct, no separate registry
-call. Dependencies come from closure capture, which is what Go has instead of an
-IoC container.
+## Why another job queue
+
+Go has good job libraries. Each one locks you to a backend.
+
+| | [River] | [asynq] | **jobsync** |
+|---|---|---|---|
+| Storage | Postgres only | Redis only | **Postgres, MySQL, Redis, or your own** |
+| Transactional enqueue | yes | no | yes, where the engine allows it |
+| Dashboard | separate project | separate binary | **one `http.Handler`, same UI on every driver** |
+| Declaring a job | args type + `Kind()` + worker struct + registry call | handler + task-type string + mux | **one `Declare`, one `Handle`** |
+
+[River]: https://riverqueue.com
+[asynq]: https://github.com/hibiken/asynq
+
+**MySQL is the gap.** Nothing else in the Go ecosystem gives you a real job
+dashboard on MySQL. If that's your database, this is the reason to be here.
 
 ## Install
 
@@ -37,7 +43,46 @@ go get github.com/beesaferoot/jobsync
 Go 1.22+. Pick a driver: `driver/postgres`, `driver/mysql`, `driver/redis`, or
 `driver/memory` for tests.
 
-## A complete program
+## Thirty seconds
+
+```go
+store, _ := postgres.Open(ctx, os.Getenv("DATABASE_URL"))  // connects + migrates
+client, _ := jobsync.NewClient(store)
+
+srv := jobsync.NewServer(store, jobsync.ServerConfig{Concurrency: 20})
+SendWelcome.Handle(srv, func(ctx context.Context, a WelcomeArgs) error {
+    return mailer.Send(ctx, a.Email)
+})
+go srv.Run(ctx)
+
+http.Handle("/jobs/", jobsync.Dashboard(store, jobsync.DashboardConfig{BasePath: "/jobs"}))
+```
+
+No migration CLI step, no separate dashboard process, no npm.
+
+### The API, in full
+
+```go
+type WelcomeArgs struct {
+    UserID int    `json:"user_id"`
+    Email  string `json:"email"`
+}
+
+// Declared at package level. Carries no dependencies, so anything can enqueue it.
+var SendWelcome = jobsync.Declare[WelcomeArgs]("email.welcome")
+
+// The implementation is bound at wiring time, where dependencies exist.
+SendWelcome.Handle(srv, func(ctx context.Context, a WelcomeArgs) error {
+    return mailer.Send(ctx, a.Email)   // mailer captured here
+})
+```
+
+No `Kind()` method on your args type, no worker struct, no registry call.
+Dependencies come from closure capture, which is what Go has instead of an IoC
+container.
+
+<details>
+<summary><b>A complete program</b></summary>
 
 ```go
 package main
@@ -51,14 +96,15 @@ import (
     "github.com/beesaferoot/jobsync/driver/postgres"
 )
 
-type WelcomeArgs struct{ Email string `json:"email"` }
+type WelcomeArgs struct {
+    Email string `json:"email"`
+}
 
 var SendWelcome = jobsync.Declare[WelcomeArgs]("email.welcome")
 
 func main() {
     ctx := context.Background()
 
-    // Open connects, migrates and is ready. No migration CLI step.
     store, err := postgres.Open(ctx, "postgres://user:pass@localhost/app?sslmode=disable")
     if err != nil {
         log.Fatal(err)
@@ -88,16 +134,56 @@ func main() {
 }
 ```
 
-## Enqueueing
+</details>
+
+## The dashboard
+
+Mount it on any `http.ServeMux` and you get the whole thing — one embedded HTML
+file, no CDN, no build step, works air-gapped.
+
+**Find the job that broke.** Filter by state from the sidebar; the failure
+message is in the table, so you don't have to open anything to see what went
+wrong.
+
+![Job list](docs/screenshots/jobs.png)
+
+**Then open it.** Payload, attempt count, and a state timeline with `+Nms`
+deltas — how long it waited, how long it ran, how long until the retry.
+
+![Job detail](docs/screenshots/job-detail.png)
+
+**Recurring jobs**, with next and last run, and a Trigger button for when
+somebody asks whether the nightly report still works.
+
+![Recurring jobs](docs/screenshots/recurring.png)
+
+Also: queue pausing for when a downstream API is down and you'd rather not burn
+ten thousand retries against it, and a live server list so you can see your
+fleet during a deploy.
+
+### Security, by default
+
+`Auth` defaults to `LoopbackOnly`: nothing to configure on a laptop, and not
+world-readable if it ships. Behind a reverse proxy you **must** set it, because
+`LoopbackOnly` refuses any request carrying `X-Forwarded-For` — a proxy is
+usually itself on loopback, so a naive loopback check is wide open.
 
 ```go
-SendWelcome.Enqueue(ctx, client, args)                          // now
-SendWelcome.Schedule(ctx, client, args, time.Now().Add(time.Hour))
-SendWelcome.Cron(ctx, client, "nightly", "0 2 * * *", args)      // recurring
-SendWelcome.EnqueueTx(ctx, client, tx, args)                     // inside your transaction
+jobsync.Dashboard(store, jobsync.DashboardConfig{
+    BasePath: "/jobs",
+    Auth:     jobsync.BasicAuth(user, pass),
+    // or: jobsync.AuthorizeFunc(yourSessionCheck, loginRedirect)
+})
 ```
 
-Options, all optional:
+## Scheduling
+
+```go
+SendWelcome.Enqueue(ctx, client, args)                             // now
+SendWelcome.Schedule(ctx, client, args, time.Now().Add(time.Hour)) // later
+SendWelcome.Cron(ctx, client, "nightly", "0 2 * * *", args)        // recurring
+SendWelcome.EnqueueTx(ctx, client, tx, args)                       // in your transaction
+```
 
 ```go
 SendWelcome.Enqueue(ctx, client, args,
@@ -110,78 +196,54 @@ SendWelcome.Enqueue(ctx, client, args,
 )
 ```
 
-**Transactional enqueue** (`EnqueueTx`) makes a job and the rows that justify it
-commit together, so a job can never reference a row that rolled back. SQL drivers
-only; it returns an error on Redis rather than silently writing outside your
-transaction.
+**`EnqueueTx`** makes a job and the rows that justify it commit together, so a
+job can never reference a row that rolled back. SQL drivers only; it errors on
+Redis rather than silently writing outside your transaction.
 
-**Recurring jobs** need an explicit timezone. The default is UTC, and
-`time.Local` is rejected: a schedule stores its zone *by name*, and `time.Local`
-is named `"Local"` — which resolves to a different zone on every machine, so one
-fleet would fire the same nightly job at several different hours.
-
-## Dashboard
-
-```go
-mux.Handle("/jobs/", jobsync.Dashboard(store, jobsync.DashboardConfig{
-    BasePath: "/jobs",
-    Auth:     jobsync.BasicAuth(user, pass),
-}))
-```
-
-One embedded HTML file — no CDN, no build step, works air-gapped. Overview with
-a throughput graph, a filterable job list, job detail with state history, queues,
-recurring jobs, and live servers.
-
-**`Auth` defaults to `LoopbackOnly`**: nothing to configure on a laptop, and not
-world-readable if it ships. Behind a reverse proxy you must set it, because
-`LoopbackOnly` refuses any request carrying `X-Forwarded-For` — a proxy is
-usually itself on loopback, so a naive loopback check is wide open. Use
-`BasicAuth`, `AuthorizeFunc` to wrap existing session middleware, or `AllowAll`
-to open it deliberately.
+**Cron** runs once per fleet, not once per server — one server wins a lock per
+tick. Recurring jobs need an explicit timezone; `time.Local` is rejected,
+because a schedule stores its zone *by name* and `"Local"` means something
+different on every machine.
 
 ## Drivers
 
 | | Postgres | MySQL | Redis | memory |
 |---|---|---|---|---|
 | Jobs, retries, scheduling | ✅ | ✅ | ✅ | ✅ |
-| Recurring jobs (`Locker`, `Schedules`) | ✅ | ✅ | ✅ | ✅ |
-| Dashboard (`Monitor`) | ✅ | ✅ | ✅ | ✅ |
-| Queue pausing (`QueueControl`) | ✅ | ✅ | ✅ | ✅ |
-| Transactional enqueue (`TxEnqueuer`) | ✅ | ✅ | — | — |
+| Recurring jobs | ✅ | ✅ | ✅ | ✅ |
+| Dashboard | ✅ | ✅ | ✅ | ✅ |
+| Queue pausing | ✅ | ✅ | ✅ | ✅ |
+| Transactional enqueue | ✅ | ✅ | — | — |
 | Free-text search | ✅ | ✅ | — | ✅ |
 
 **MySQL requires 8.0+ / MariaDB 10.6+** for `SELECT ... FOR UPDATE SKIP LOCKED`.
 `Open` refuses older servers rather than failing on every poll.
 
-**Redis** declines `Filter.Search` with `ErrUnsupportedFilter`; the dashboard
-reads that and hides the search box rather than returning unfiltered results.
-Priority is clamped to 0–9 — a sorted set score encodes one dimension, so
-ordering by priority while filtering by due time needs a structure per level.
+**Redis** declines free-text search; the dashboard reads that capability and
+hides the search box rather than returning unfiltered results. Priority is
+clamped to 0–9.
 
-`memory` is not for production. It exists as the control for the conformance
-suite, and it is useful in application tests where a real queue is more
-infrastructure than the test needed.
+`memory` is not for production. It is the control for the conformance suite, and
+it is useful in application tests where a real queue is more infrastructure than
+the test needed.
 
 ## Semantics worth knowing
 
-**At-least-once, lease-based.** A job claimed by a server that dies is returned
-to its queue by any other server once the lease expires. Handlers should be
-idempotent; there is no exactly-once and the docs will not pretend otherwise.
+**At-least-once, lease-based.** A job claimed by a server that dies returns to
+its queue once the lease expires. Handlers should be idempotent; there is no
+exactly-once and the docs will not pretend otherwise.
 
-**Due-ness uses the storage's clock**, never the calling process's — it is the
-only clock every server shares. A job enqueued with `ScheduledAt = time.Now()` on
-a host running ahead of the database waits out the skew, then the next poll.
+**Due-ness uses the storage's clock**, never the calling process's — it's the
+only clock every server shares.
 
 **A duplicate job ID is ignored, not overwritten.** This is what makes the
-scheduler idempotent: a server crashing between enqueuing a tick and recording it
-refires the same tick as a no-op.
+scheduler idempotent: a server crashing between enqueuing a tick and recording
+it refires the same tick as a no-op.
 
 **Retention.** SQL drivers keep terminal jobs for `Retention` (7 days default) —
-run `store.Janitor(ctx, time.Hour)` to enforce it. Redis sets a TTL instead and
-needs no janitor. Throughput history is bounded by whatever retention you run.
+run `store.Janitor(ctx, time.Hour)` to enforce it. Redis uses a TTL instead.
 
-## Writing a driver
+## Bring your own storage
 
 `Storage` is five methods: `Enqueue`, `Fetch`, `Extend`, `Finish`, `Reclaim`.
 Everything else — `Locker`, `Schedules`, `Monitor`, `QueueControl`,
@@ -190,36 +252,40 @@ driver implementing only `Storage` runs jobs correctly; it just lights up fewer
 dashboard panels.
 
 The contract speaks **jobs, queues, leases and schedules — never sets, hashes or
-counters**. That is the deliberate break from Hangfire, whose storage API exposes
-Redis data structures and therefore forces every SQL driver into emulation tables.
+counters**. That's the deliberate break from Hangfire, whose storage API exposes
+Redis data structures and so forces every SQL driver into emulation tables.
 
-Prove a driver with the conformance suite:
+Prove your driver with the suite the built-in ones are held to:
 
 ```go
 func TestConformance(t *testing.T)  { storagetest.Run(t, newStore) }
 func TestDashboardAPI(t *testing.T) { storagetest.RunAPI(t, newStore) }
 ```
 
-It pins the parts that are invisible until production: that `Fetch` is atomic
+It pins the things that are invisible until production: that `Fetch` is atomic
 across processes, that a late `Finish` from a server whose lease expired is
 ignored rather than applied, that a terminal job releases its unique key, and
 that timestamps survive a non-UTC session.
 
-## Development
+## Try it
 
 ```sh
 docker compose up -d          # postgres, redis, mysql
-go test -race -count=5 ./...  # -count catches the clock- and lease-boundary races
-go run ./examples/dashboard   # demo app at http://127.0.0.1:8787/jobs/
+go run ./examples/dashboard   # http://127.0.0.1:8787/jobs/
 ```
 
-`STORAGE=postgres|mysql|redis` picks the driver for the example.
+`STORAGE=postgres|mysql|redis` switches the driver — the UI is identical, minus
+whatever that driver declines to support.
+
+```sh
+go test -race -count=5 ./...  # -count catches the clock- and lease-boundary races
+```
 
 ## Status
 
-Pre-1.0: the `Storage` contract is settled and covered by the conformance suite,
-but it may still gain optional interfaces. Not yet implemented: continuations and
-batches, and batched fetch (`Fetch` claims one job per round trip).
+Pre-1.0. The `Storage` contract is settled and covered by the conformance suite,
+but it may still gain optional interfaces. Not yet implemented: continuations
+and batches, and batched fetch (`Fetch` claims one job per round trip).
 
 See `DESIGN.md` for the architecture and the reasoning behind the storage
 contract.

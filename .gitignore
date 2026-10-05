@@ -5,8 +5,10 @@
 PLAN.md
 
 # Reference screenshots of another product's dashboard, kept locally for design
-# comparison. Not ours to redistribute.
-screenshots/
+# comparison. Not ours to redistribute. Root-anchored on purpose: an unanchored
+# pattern would also swallow docs/screenshots, which is jobsync's own UI and is
+# meant to ship.
+/screenshots/
 
 # Local env overrides for the demo and the conformance suite.
 .env
