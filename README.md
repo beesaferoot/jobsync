@@ -149,19 +149,27 @@ func main() {
 Mount it on any `http.ServeMux` and you get the whole thing. It ships as a single
 embedded HTML file, so it renders offline and stays out of your build pipeline.
 
-**Find the job that broke.** Filter by state from the sidebar; the failure
-message is in the table, so you don't have to open anything to see what went
-wrong.
+**See what is failing, not just how much.** Dead and retrying jobs are grouped
+by cause, with IDs and numbers masked so "order 41 not found" and "order 97 not
+found" count as one problem. Each group has its error, when it started, and a
+button to requeue the lot once the cause is fixed.
+
+![Failures grouped by cause](docs/screenshots/failures.png)
+
+**Find the job that broke.** Filter by state or queue from the sidebar; the
+failure message is in the table, so you don't have to open anything to see what
+went wrong.
 
 ![Job list](docs/screenshots/jobs.png)
 
-**Then open it.** Payload, attempt count, and a state timeline with `+Nms`
-deltas — how long it waited, how long it ran, how long until the retry.
+**Then open it.** The job as the call that created it, the last error, and a
+state history with `+Nms` deltas — how long it waited, how long it ran, how long
+until the retry.
 
 ![Job detail](docs/screenshots/job-detail.png)
 
-**Recurring jobs**, with next and last run, and a Trigger button for when
-somebody asks whether the nightly report still works.
+**Recurring jobs**, with the schedule in words, next and last run, and a Trigger
+button for when somebody asks whether the nightly report still works.
 
 ![Recurring jobs](docs/screenshots/recurring.png)
 
