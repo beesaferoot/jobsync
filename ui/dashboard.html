@@ -3,275 +3,395 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
 <title>jobsync</title>
 <style>
+/* Dark only, and deliberately plain: flat surfaces, one accent colour, solid
+   state labels, bordered tables. Nothing competes with the numbers. */
 :root{
-  --bg:#f4f5f7; --panel:#fff; --sunken:#fafbfc; --border:#e1e4e8; --line:#eef0f2;
-  --text:#1b1f24; --muted:#6a737d; --faint:#959da5;
-  --accent:#0969da; --accent-bg:#ddf4ff;
-  --ok:#1a7f37; --ok-bg:#dafbe1; --warn:#9a6700; --warn-bg:#fff8c5;
-  --bad:#cf222e; --bad-bg:#ffebe9; --run:#8250df; --run-bg:#fbefff;
-  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
-}
-@media (prefers-color-scheme:dark){
-  :root{
-    --bg:#0d1117; --panel:#161b22; --sunken:#0d1117; --border:#30363d; --line:#21262d;
-    --text:#e6edf3; --muted:#8b949e; --faint:#6e7681;
-    --accent:#4493f8; --accent-bg:#0c2d6b;
-    --ok:#3fb950; --ok-bg:#0f2f17; --warn:#d29922; --warn-bg:#352a0f;
-    --bad:#f85149; --bad-bg:#3c1618; --run:#a371f7; --run-bg:#2a1f3d;
-  }
+  color-scheme:dark;
+  --page:#15181c;
+  --sheet:#1b1f24; --sheet-edge:#2c3239;
+  --raised:#22272d; --zebra:#1e2227; --line:#2a3037; --border:#353c45;
+  --text:#dfe3e8; --muted:#939ca7; --faint:#6b747e;
+  --accent:#3d7cc0; --accent-hi:#4a8cd3;
+  --link:#6fb0ea; --link-hover:#a6d0f5; --pick:#2b3a4c;
+  --ok:#5cbf5a; --bad:#ec6a5f; --warn:#e0b44a; --run:#5ea6ea; --queue:#8f97ea; --idle:#9aa2ac;
+  --ui:"Helvetica Neue",Helvetica,Arial,sans-serif;
+  --mono:Menlo,Monaco,"SF Mono",ui-monospace,Consolas,monospace;
+  --button:linear-gradient(#2b3037,#24282e);
 }
 *{box-sizing:border-box}
-html,body{height:100%}
-body{margin:0;background:var(--bg);color:var(--text);display:flex;flex-direction:column;
-     font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+html{background:var(--page)}
+body{margin:0;min-height:100vh;display:flex;flex-direction:column;color:var(--text);
+     font:14px/1.45 var(--ui);background:var(--page)}
+a,.link{color:var(--link);text-decoration:none;cursor:pointer;background:none;border:0;padding:0;font:inherit}
+a:hover,.link:hover{color:var(--link-hover);text-decoration:underline}
+:focus-visible{outline:none;box-shadow:0 0 0 2px var(--accent-hi);border-radius:3px}
+.mono,code{font-family:var(--mono);font-size:12px}
+.muted{color:var(--muted)} .faint{color:var(--faint)}
+.hide{display:none!important}
 
-/* ---- top bar: the counts are the navigation ---- */
-.topbar{background:var(--panel);border-bottom:1px solid var(--border);
-        display:flex;align-items:stretch;gap:2px;padding:0 16px;flex-wrap:wrap}
-.brand{display:flex;align-items:center;gap:8px;padding:14px 18px 14px 0;font-weight:600;letter-spacing:-.01em}
-.brand svg{width:18px;height:18px;color:var(--accent)}
-.topbar nav{display:flex;align-items:stretch}
-.topbar nav button{background:none;border:0;border-bottom:2px solid transparent;padding:0 16px;
-     font:inherit;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:7px}
-.topbar nav button:hover{color:var(--text)}
-.topbar nav button[aria-selected=true]{color:var(--text);font-weight:600;border-bottom-color:var(--accent)}
-.pill{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:19px;padding:0 6px;
-      border-radius:10px;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;
-      background:var(--accent-bg);color:var(--accent);border:1px solid transparent}
-.pill.warn{background:var(--warn-bg);color:var(--warn)}
-.pill.bad{background:var(--bad);color:#fff}
-.pill.neutral{background:var(--line);color:var(--muted)}
-.topbar .right{margin-left:auto;display:flex;align-items:center;gap:10px}
+/* ---- masthead: one flat bar, light-weight brand ---- */
+.masthead{display:flex;align-items:center;gap:12px;padding:10px 28px;
+  background:linear-gradient(#2f5f8e,#26507a);border-bottom:1px solid #1c3d5e}
+.masthead h1{margin:0;font-size:24px;font-weight:300;color:#fff;letter-spacing:-.3px}
+.masthead h1 span{color:#cfe0f0;font-size:15px;margin-left:6px;opacity:.8}
+.masthead .right{margin-left:auto;display:flex;align-items:center;gap:14px;font-size:12px;color:#dbe8f4}
+.live{display:flex;align-items:center;gap:6px}
+.live i{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+.live.stale i{background:var(--bad)}
 
-main{flex:1;padding:22px 24px;max-width:1400px;width:100%;margin:0 auto}
-h1.page{font-size:28px;font-weight:600;letter-spacing:-.02em;margin:0 0 4px}
-.sub{color:var(--muted);margin:0 0 20px;font-size:13px}
+.crumbs{display:flex;align-items:center;gap:6px;padding:7px 28px;font-size:12px;color:var(--muted);
+  background:var(--sheet);border-bottom:1px solid var(--sheet-edge)}
+.crumbs a{color:var(--link)}
+.crumbs .sep{opacity:.5}
+.crumbs .right{margin-left:auto;font-family:var(--mono);color:var(--faint)}
 
-/* ---- panels & tables ---- */
-.panel{background:var(--panel);border:1px solid var(--border);border-radius:7px;margin-bottom:18px;overflow:hidden}
-.panel>h2{font-size:13px;font-weight:600;margin:0;padding:11px 14px;border-bottom:1px solid var(--border);
-          display:flex;align-items:center;gap:8px}
-.panel>h2 .muted{font-weight:400;font-size:12px}
-table{width:100%;border-collapse:collapse}
-th{text-align:left;padding:8px 14px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;
-   color:var(--muted);font-weight:600;border-bottom:1px solid var(--border);white-space:nowrap}
-td{padding:9px 14px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:top}
+/* ---- tab bar ---- */
+.tabbar{display:flex;justify-content:center;padding:18px 16px 0;position:relative;z-index:1;overflow-x:auto}
+.seg{display:flex;border:1px solid var(--border);border-radius:4px;overflow:hidden;flex:none}
+.seg button{display:flex;align-items:center;gap:7px;padding:6px 18px;border:0;border-left:1px solid var(--border);
+  background:var(--button);color:var(--text);font:14px var(--ui);cursor:pointer;white-space:nowrap}
+.seg button:first-child{border-left:0}
+.seg button:hover{background:var(--raised)}
+.seg button[aria-selected=true]{background:var(--accent);color:#fff}
+.count{font-size:11px;font-weight:bold;min-width:18px;padding:0 6px;border-radius:3px;line-height:17px;
+  text-align:center;color:#fff;background:#4b545e;font-variant-numeric:tabular-nums}
+.seg button[aria-selected=true] .count{background:#ffffff33}
+.count.alarm,.seg button[aria-selected=true] .count.alarm{background:#c9443a}
+
+main{flex:1;width:100%;max-width:1260px;margin:-12px auto 0;padding:0 20px}
+.sheet{background:var(--sheet);border:1px solid var(--sheet-edge);border-radius:4px;
+  padding:34px 26px 26px;min-height:560px}
+.title{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:16px;flex-wrap:wrap}
+.title h2{margin:0;font-size:22px;font-weight:300;color:var(--text)}
+.title .sum{color:var(--muted);font-size:12px}
+
+/* ---- modules: a bordered box with a plain heading ---- */
+.module{border:1px solid var(--border);border-radius:4px;overflow:hidden;background:var(--sheet)}
+.module>.cap{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;
+  background:var(--sheet);border-bottom:1px solid var(--border);color:var(--text);
+  font-size:14px;font-weight:bold}
+.module>.cap .muted{font-weight:normal;color:var(--muted)}
+.module.alarm{border-color:#5a2c28}
+.module.alarm>.cap{background:#2a1c1b;border-bottom-color:#5a2c28;color:var(--bad)}
+.module.calm{border-color:#2e4a2e}
+.module.calm>.cap{background:#1c271d;border-bottom-color:#2e4a2e;color:var(--ok)}
+.body{padding:12px}
+.stack{display:flex;flex-direction:column;gap:18px}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start}
+.cols.wide-side{grid-template-columns:minmax(0,1fr) 340px}
+.cols.left-side{grid-template-columns:minmax(0,1fr) 210px}
+@media (max-width:920px){.cols,.cols.wide-side,.cols.left-side{grid-template-columns:1fr}}
+
+/* ---- buttons & fields ---- */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:4px;font:12px var(--ui);
+  cursor:pointer;white-space:nowrap;border:1px solid var(--border);background:var(--button);color:var(--text)}
+.btn:hover:not(:disabled){background:var(--raised);border-color:#46505b}
+.btn:active:not(:disabled){background:#1d2126}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.primary{border-color:#336aa5;background:var(--accent);color:#fff}
+.btn.primary:hover:not(:disabled){background:var(--accent-hi);border-color:#3d7cc0}
+.btn.danger{color:var(--bad)}
+.btn.armed,.btn.armed:hover:not(:disabled){border-color:#a33a31;background:#c9443a;color:#fff}
+.btn.done{border-color:#3c8a3b;background:#47a046;color:#fff}
+.btn.big{padding:6px 16px;font-size:13px}
+.mini{display:flex;border:1px solid var(--border);border-radius:4px;overflow:hidden}
+.mini button{padding:2px 10px;border:0;border-left:1px solid var(--border);font:11px var(--ui);cursor:pointer;
+  background:var(--button);color:var(--text)}
+.mini button:first-child{border-left:0}
+.mini button[aria-selected=true]{background:var(--accent);color:#fff}
+input,select{font:13px var(--ui);color:var(--text);background:#14171b;border:1px solid var(--border);
+  border-radius:4px;padding:4px 8px}
+.search{display:flex;align-items:center;gap:6px;flex:1;max-width:340px;padding:4px 10px;border-radius:4px;
+  background:#14171b;border:1px solid var(--border)}
+.search input{border:0;background:none;padding:0;flex:1;min-width:0}
+.search svg{width:12px;height:12px;color:var(--faint);flex:none}
+
+/* ---- tables: bold headers, ruled cells ---- */
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:9px 12px;font-size:13px;font-weight:bold;color:var(--text);white-space:nowrap;
+  background:var(--sheet);border-bottom:2px solid var(--border)}
+th+th,td+td{border-left:1px solid var(--line)}
+td{padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+tbody tr:nth-child(even){background:var(--zebra)}
+tbody tr:hover{background:#232930}
+tbody tr.picked{background:var(--pick)}
 tbody tr:last-child td{border-bottom:0}
-tr.row:hover{background:var(--sunken)}
-td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
-td.when{color:var(--muted);white-space:nowrap;text-align:right}
-.mono{font-family:var(--mono);font-size:12px}
-a.id{font-family:var(--mono);font-size:12px;color:var(--accent);text-decoration:none;cursor:pointer}
-a.id:hover{text-decoration:underline}
+.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.sub-line{font-size:11px;color:var(--faint);margin-top:1px}
+.empty{padding:30px 12px;text-align:center;color:var(--faint)}
 
-/* ---- state badges ---- */
-.badge{display:inline-block;padding:1px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap}
-.b-succeeded{background:var(--ok-bg);color:var(--ok)}
-.b-dead,.b-cancelled{background:var(--bad-bg);color:var(--bad)}
-.b-running{background:var(--run-bg);color:var(--run)}
-.b-retrying{background:var(--warn-bg);color:var(--warn)}
-.b-enqueued{background:var(--accent-bg);color:var(--accent)}
-.b-scheduled{background:var(--line);color:var(--muted)}
+/* ---- state labels: solid, like an "Online" tag ---- */
+.badge{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;font-size:11px;font-weight:bold;
+  padding:0 6px;line-height:18px;border-radius:3px;color:#fff}
+.b-succeeded{background:#3f9a3d}
+.b-dead{background:#c9443a}
+.b-retrying{background:#b98a1f}
+.b-running{background:#2f78c4}
+.b-enqueued{background:#5860c4}
+.b-scheduled{background:#59616b}
+.b-cancelled{background:#4b4b4b}
+.b-paused{background:#b98a1f;margin-left:6px}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex:none}
 
-/* ---- jobs layout: sidebar of states, Hangfire-style ---- */
-.split{display:grid;grid-template-columns:210px 1fr;gap:18px;align-items:start}
-@media (max-width:860px){.split{grid-template-columns:1fr}}
-.states{background:var(--panel);border:1px solid var(--border);border-radius:7px;overflow:hidden}
-.states button{display:flex;width:100%;align-items:center;justify-content:space-between;gap:8px;
-   background:none;border:0;border-bottom:1px solid var(--line);padding:10px 13px;
-   font:inherit;color:var(--text);cursor:pointer;text-align:left}
-.states button:last-child{border-bottom:0}
-.states button:hover{background:var(--sunken)}
-.states button[aria-selected=true]{background:var(--sunken);font-weight:600;
-   box-shadow:inset 3px 0 0 var(--accent)}
-
-/* ---- controls ---- */
-.toolbar{display:flex;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap}
-.btn{font:inherit;font-size:13px;padding:5px 11px;border-radius:6px;border:1px solid var(--border);
-     background:var(--panel);color:var(--text);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
-.btn:hover:not(:disabled){border-color:var(--faint)}
-.btn:disabled{opacity:.45;cursor:not-allowed}
-.btn.primary:not(:disabled){background:var(--accent);border-color:var(--accent);color:#fff}
-.btn.danger:not(:disabled){color:var(--bad);border-color:var(--bad)}
-input,select{font:inherit;font-size:13px;padding:5px 9px;border-radius:6px;
-             border:1px solid var(--border);background:var(--panel);color:var(--text)}
-.perpage{display:flex;align-items:center;gap:0;margin-left:auto}
-.perpage span{color:var(--muted);font-size:12px;margin-right:8px}
-.perpage button{border:1px solid var(--border);background:var(--panel);color:var(--accent);
-   padding:4px 10px;font:inherit;font-size:12px;cursor:pointer;margin-left:-1px}
-.perpage button:first-of-type{border-radius:6px 0 0 6px}
-.perpage button:last-of-type{border-radius:0 6px 6px 0}
-.perpage button[aria-selected=true]{background:var(--line);color:var(--text);font-weight:600}
-
-/* ---- overview tiles ---- */
-.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
-.tile{background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:14px 16px;text-align:center}
-.tile .n{font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-.tile .k{font-size:12px;color:var(--muted);margin-top:2px}
-
-/* ---- graph ---- */
-.graph{padding:14px}
-.graph svg{width:100%;height:170px;display:block;overflow:visible}
+/* ---- overview ---- */
+.tiles{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:20px}
+@media (max-width:920px){.tiles{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:520px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tile{text-align:left;padding:10px 14px 11px;border:1px solid var(--border);border-radius:4px;cursor:pointer;
+  background:var(--button);color:var(--text);font:inherit}
+.tile:hover{background:var(--raised);border-color:#46505b}
+.tile .k{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.tile .n{font-size:24px;font-weight:300;line-height:1.3;margin-top:2px;font-variant-numeric:tabular-nums}
+.tile .hint{font-size:11px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chart svg{width:100%;height:180px;display:block;overflow:visible}
 .gridline{stroke:var(--line);stroke-width:1}
 .axis{fill:var(--faint);font-size:10px;font-family:var(--mono)}
-.tip{position:fixed;pointer-events:none;background:#1b1f24;color:#fff;border-radius:5px;padding:7px 10px;
-     font-size:12px;line-height:1.45;z-index:50;display:none;box-shadow:0 4px 14px #0004}
-.tip b{display:block;margin-bottom:3px;font-weight:600}
-.tip i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;font-style:normal}
+.legend{display:flex;gap:16px;font-size:12px;color:var(--muted);margin-top:6px}
+.legend span{display:flex;align-items:center;gap:5px}
+.legend i{width:10px;height:10px;border:1px solid}
+.facts{display:grid;grid-template-columns:1fr auto;gap:6px 10px;font-size:13px}
+.facts>span:nth-child(odd){color:var(--muted)}
+.facts>span:nth-child(even){text-align:right}
+.srv{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);font-size:13px}
+.srv:last-child{border-bottom:0}
+.srv .grow{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tip{position:fixed;pointer-events:none;background:#0e1013;color:var(--text);border:1px solid var(--border);
+  border-radius:4px;padding:7px 10px;font-size:12px;line-height:1.5;z-index:50;display:none}
+.tip b{display:block;margin-bottom:2px}
+.tip i{display:inline-block;width:8px;height:8px;margin-right:6px}
+
+/* ---- jobs list ---- */
+.toolbar{display:flex;gap:8px;align-items:center;padding:10px 12px;flex-wrap:wrap;
+  background:var(--sheet);border:1px solid var(--border);border-bottom:0;border-radius:4px 4px 0 0}
+.actionbar{display:flex;gap:8px;align-items:center;padding:8px 12px;flex-wrap:wrap;font-size:12px;color:var(--muted);
+  background:var(--raised);border:1px solid var(--border)}
+.actionbar .grow{flex:1}
+.listbox{border:1px solid var(--border);border-top:0}
+.pager{display:flex;gap:6px;align-items:center;padding:10px 2px;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.pager .cur{padding:0 8px;background:var(--accent);color:#fff;border-radius:3px}
+.pager .grow{flex:1}
+.filters .group{padding:10px 12px 4px;font-size:13px;font-weight:bold;color:var(--text)}
+.filters .group+.list{padding-bottom:8px}
+.filters .list button{display:flex;width:100%;justify-content:space-between;align-items:center;gap:6px;
+  padding:4px 12px;border:0;background:none;color:var(--link);font:13px var(--ui);cursor:pointer;text-align:left}
+.filters .list button:hover{background:var(--raised)}
+.filters .list button[aria-selected=true]{background:var(--accent);color:#fff}
+.filters .list .c{font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums}
+.filters .list button[aria-selected=true] .c{color:#e3efff}
+.filters .divider{border-top:1px solid var(--line)}
+a.id{font-family:var(--mono);font-size:12px}
+.reason{font-family:var(--mono);font-size:12px;color:#e0948c;max-width:300px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ---- failures ---- */
+.note{padding:10px 12px;margin-bottom:16px;border:1px solid #5e5222;border-radius:4px;background:#26230f;
+  color:#e6d58e;font-size:13px;line-height:1.5}
+.cause{border:1px solid var(--border);border-radius:4px;overflow:hidden}
+.cause+.cause{margin-top:12px}
+.cause>header{display:grid;grid-template-columns:14px minmax(0,1fr) 132px auto;gap:14px;align-items:center;
+  padding:12px 14px;background:var(--sheet);cursor:pointer}
+.cause>header:hover{background:var(--zebra)}
+@media (max-width:760px){.cause>header{grid-template-columns:14px minmax(0,1fr)}.cause>header .spark,.cause>header .acts{grid-column:2}}
+.cause .arrow{font-size:9px;color:var(--muted)}
+.cause .kind{font-family:var(--mono);font-size:13px;font-weight:bold;color:var(--bad)}
+.cause .msg{font-family:var(--mono);font-size:12px;color:var(--text);margin-top:2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cause .where{font-size:11px;color:var(--faint);margin-top:2px}
+.cause .acts{display:flex;gap:6px}
+.spark{display:flex;align-items:flex-end;gap:2px;height:24px}
+.spark i{flex:1;background:var(--bad);opacity:.85;border-radius:1px 1px 0 0;min-height:1px}
+.cause .open{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);border-top:1px solid var(--border)}
+@media (max-width:760px){.cause .open{grid-template-columns:1fr}}
+.cause .open>div{padding:12px 14px}
+.cause .open>div:first-child{background:#17191d;border-right:1px solid var(--line)}
+.label{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--faint);margin-bottom:6px}
+pre{margin:0;font-family:var(--mono);font-size:12px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+pre.trace{color:#dcb3ad;max-height:340px;overflow:auto}
+pre.trace .first{display:block;background:#3a2422;color:#ffb1a8;font-weight:bold;margin:0 -6px;padding:0 6px;border-radius:2px}
 
 /* ---- job detail ---- */
-.timeline{padding:0 14px 14px}
-.tl{border:1px solid var(--border);border-radius:6px;margin-top:10px;overflow:hidden}
-.tl header{display:flex;align-items:baseline;gap:10px;padding:9px 13px;background:var(--sunken)}
-.tl header .st{font-weight:600;font-size:14px}
-.tl header .when{margin-left:auto;color:var(--muted);font-size:12px}
-.tl .reason{padding:9px 13px;border-top:1px solid var(--line);font-family:var(--mono);font-size:12px;
-            white-space:pre-wrap;word-break:break-word}
-.tl.s-succeeded{border-color:var(--ok)} .tl.s-succeeded .st{color:var(--ok)}
-.tl.s-dead,.tl.s-cancelled{border-color:var(--bad)} .tl.s-dead .st,.tl.s-cancelled .st{color:var(--bad)}
-.tl.s-running{border-color:var(--run)} .tl.s-running .st{color:var(--run)}
-.tl.s-retrying{border-color:var(--warn)} .tl.s-retrying .st{color:var(--warn)}
-.tl.s-enqueued{border-color:var(--accent)} .tl.s-enqueued .st{color:var(--accent)}
-pre{background:var(--sunken);border:1px solid var(--border);border-radius:6px;padding:11px 13px;
-    overflow:auto;font-family:var(--mono);font-size:12px;margin:0}
-dl.kv{display:grid;grid-template-columns:150px 1fr;gap:0;margin:0}
-dl.kv dt{padding:8px 14px;color:var(--muted);font-size:12px;border-bottom:1px solid var(--line)}
-dl.kv dd{padding:8px 14px;margin:0;font-family:var(--mono);font-size:12px;border-bottom:1px solid var(--line);
-         word-break:break-all}
-dl.kv dt:last-of-type,dl.kv dd:last-of-type{border-bottom:0}
-.back{background:none;border:0;color:var(--accent);cursor:pointer;font:inherit;font-size:13px;padding:0;margin-bottom:12px}
+.detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:16px;flex-wrap:wrap}
+.detail-head h2{margin:0;font-size:22px;font-weight:normal;font-family:var(--mono);color:var(--text)}
+.detail-head .meta{display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap}
+.code{background:#15171b;padding:12px 14px;font-family:var(--mono);font-size:12px;line-height:1.65;
+  white-space:pre-wrap;word-break:break-word;margin:0}
+.c-com{color:#6a9955} .c-fn{color:#dcdcaa} .c-key{color:#9cdcfe} .c-str{color:#ce9178}
+.c-num{color:#b5cea8} .c-kw{color:#569cd6}
+.kv td:first-child{width:160px;color:var(--muted)}
+.kv td{font-size:13px}
+.hist{display:flex;flex-direction:column;gap:8px}
+.hcard{border:1px solid var(--border);border-radius:4px;padding:8px 10px;background:var(--zebra)}
+.hcard .t{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.hcard .t b{font-size:13px}
+.hcard .when{font-size:11px;color:var(--faint);text-align:right}
+.hcard pre{margin-top:6px;color:var(--text);max-height:200px;overflow:auto}
 
-/* ---- misc ---- */
-.cron{font-family:var(--mono);font-size:12px;background:var(--bad-bg);color:var(--bad);padding:1px 7px;border-radius:4px}
-.empty{padding:34px 14px;text-align:center;color:var(--muted)}
-.err-banner{background:var(--bad-bg);color:var(--bad);border:1px solid var(--bad);
-            border-radius:7px;padding:11px 14px;margin-bottom:18px}
-.note{background:var(--warn-bg);color:var(--warn);border:1px solid currentColor;border-radius:7px;
-      padding:11px 14px;margin-bottom:18px;font-size:13px}
-.more{background:none;border:0;color:var(--accent);cursor:pointer;font:inherit;font-size:12px;padding:0}
-footer{border-top:1px solid var(--border);background:var(--panel);padding:11px 24px;
-       color:var(--muted);font-size:12px;display:flex;gap:18px;flex-wrap:wrap}
-footer .mono{color:var(--faint)}
-.hide{display:none!important}
+/* ---- recurring ---- */
+.cron{font-family:var(--mono);font-size:12px;padding:0 5px;border-radius:3px;background:var(--raised);color:var(--text);
+  border:1px solid var(--border)}
+tr.off{opacity:.55}
+
+.err-banner{background:#2a1c1b;color:#ffb1a8;border:1px solid #5a2c28;border-radius:4px;padding:10px 12px;
+  margin-bottom:16px;font-size:13px}
+footer{width:100%;max-width:1260px;margin:0 auto;padding:12px 26px 24px;display:flex;gap:16px;flex-wrap:wrap;
+  font-size:11px;color:var(--faint)}
 </style>
 </head>
 <body>
 
-<div class="topbar">
-  <div class="brand">
-    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 100 16A8 8 0 008 0zM1.5 8a6.5 6.5 0 1113 0 6.5 6.5 0 01-13 0zm7.25-3.5a.75.75 0 00-1.5 0v3.75c0 .28.16.54.4.67l2.5 1.25a.75.75 0 10.67-1.34L8.75 7.79V4.5z"/></svg>
-    jobsync
-  </div>
-  <nav>
-    <button data-tab="overview" aria-selected="true">Overview</button>
-    <button data-tab="jobs">Jobs <span class="pill" id="n-jobs">0</span><span class="pill bad hide" id="n-failed">0</span></button>
-    <button data-tab="retries">Retries <span class="pill warn" id="n-retries">0</span></button>
-    <button data-tab="recurring">Recurring <span class="pill neutral" id="n-recurring">0</span></button>
-    <button data-tab="servers">Servers <span class="pill neutral" id="n-servers">0</span></button>
-  </nav>
+<header class="masthead">
+  <h1>jobsync <span>dashboard</span></h1>
   <div class="right">
+    <span class="live" id="live"><i></i><span id="live-text">connecting…</span></span>
     <button class="btn" id="refresh">Refresh</button>
+  </div>
+</header>
+<nav class="crumbs" aria-label="Breadcrumb">
+  <a data-go="overview">Home</a><span class="sep">›</span><span id="crumb">Overview</span>
+  <span id="crumb-id" class="hide"><span class="sep">›</span> <span class="mono" id="crumb-id-text"></span></span>
+  <span class="right" id="crumb-storage"></span>
+</nav>
+
+<div class="tabbar">
+  <div class="seg" role="tablist">
+    <button data-tab="overview" role="tab">Overview</button>
+    <button data-tab="jobs" role="tab">Jobs <span class="count" id="n-jobs">0</span></button>
+    <button data-tab="failures" role="tab">Failures <span class="count alarm hide" id="n-failed">0</span></button>
+    <button data-tab="recurring" role="tab">Recurring <span class="count" id="n-recurring">0</span></button>
+    <button data-tab="servers" role="tab">Servers <span class="count" id="n-servers">0</span></button>
   </div>
 </div>
 
-<main>
+<main><div class="sheet">
   <div id="error" class="err-banner hide"></div>
 
   <!-- Overview -->
   <section id="tab-overview">
-    <h1 class="page">Overview</h1>
-    <p class="sub" id="ov-sub"></p>
+    <div class="title"><h2>Overview</h2><span class="sum" id="ov-sum"></span></div>
     <div class="tiles" id="tiles"></div>
-    <div class="panel">
-      <h2>Throughput <span class="muted" id="g-note"></span>
-        <span class="perpage" id="window">
-          <button data-window="1h" data-bucket="1m">Hour</button>
-          <button data-window="6h" data-bucket="5m" aria-selected="true">6 hours</button>
-          <button data-window="24h" data-bucket="15m">Day</button>
-          <button data-window="168h" data-bucket="1h">Week</button>
-        </span>
-      </h2>
-      <div class="graph" id="graph"></div>
-    </div>
-    <div class="panel">
-      <h2>Queues</h2>
-      <table><thead><tr><th>Queue</th><th class="num">Enqueued</th><th class="num">Running</th>
-        <th class="num">Oldest waiting</th><th></th></tr></thead>
-      <tbody id="queues"></tbody></table>
+    <div class="cols">
+      <div class="stack">
+        <div class="module">
+          <div class="cap"><span>Throughput <span class="muted" id="g-note"></span></span>
+            <span class="mini" id="window">
+              <button data-window="1h" data-bucket="1m">1H</button>
+              <button data-window="6h" data-bucket="5m" aria-selected="true">6H</button>
+              <button data-window="24h" data-bucket="15m">24H</button>
+              <button data-window="168h" data-bucket="1h">7D</button>
+            </span>
+          </div>
+          <div class="body chart" id="graph"></div>
+        </div>
+        <div class="module">
+          <div class="cap">Queues</div>
+          <div class="tablewrap"><table>
+            <thead><tr><th>Queue</th><th class="num">Waiting</th><th class="num">Running</th>
+              <th class="num">Oldest waiting</th><th></th></tr></thead>
+            <tbody id="queues"></tbody>
+          </table></div>
+        </div>
+      </div>
+      <div class="stack">
+        <div id="attention"></div>
+        <div class="module">
+          <div class="cap">Servers <span class="muted" id="srv-sum"></span></div>
+          <div id="srv-list"></div>
+        </div>
+        <div class="module">
+          <div class="cap">Storage</div>
+          <div class="body facts" id="facts"></div>
+        </div>
+      </div>
     </div>
   </section>
 
   <!-- Jobs -->
   <section id="tab-jobs" class="hide">
     <div id="jobs-list">
-      <h1 class="page" id="jobs-title">Jobs</h1>
-      <p class="sub" id="jobs-sub"></p>
-      <div class="split">
-        <div class="states" id="states"></div>
-        <div class="panel">
-          <div class="toolbar">
-            <button class="btn primary" id="requeue" disabled>Requeue</button>
-            <button class="btn danger" id="delete" disabled>Delete</button>
-            <input id="f-queue" placeholder="queue" size="9">
-            <input id="f-kind" placeholder="kind" size="12">
-            <input id="f-search" placeholder="search" size="12">
-            <button class="btn" id="apply">Filter</button>
+      <div class="title"><h2 id="jobs-title">Select a job to inspect</h2><span class="sum" id="jobs-sum"></span></div>
+      <div class="cols left-side">
+        <div>
+          <form class="toolbar" id="filter-form">
+            <label class="search" id="search-box">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7" cy="7" r="5"/><path d="M11 11l4 4"/></svg>
+              <input id="f-search" placeholder="Search payloads and errors" aria-label="Search">
+            </label>
+            <input id="f-kind" placeholder="kind" size="14" aria-label="Kind">
+            <button class="btn primary" type="submit">Search</button>
+          </form>
+          <div class="actionbar">
+            <label for="action">Action:</label>
+            <select id="action">
+              <option value="">---------</option>
+              <option value="requeue">Requeue selected jobs</option>
+              <option value="delete">Delete selected jobs</option>
+            </select>
+            <button class="btn" id="go" disabled>Go</button>
+            <span id="sel-count">0 selected</span>
+            <span class="grow"></span>
+            <label for="limit">Rows</label>
+            <select id="limit"><option>10</option><option selected>20</option><option>50</option><option>100</option><option>500</option></select>
           </div>
-          <div class="toolbar">
-            <span class="perpage" id="perpage"><span>Per page:</span></span>
-            <button class="btn" id="prev">Prev</button>
-            <button class="btn" id="next">Next</button>
-            <span class="muted" id="page" style="font-size:12px"></span>
-          </div>
-          <table>
+          <div class="listbox tablewrap"><table>
             <thead><tr>
-              <th style="width:30px"><input type="checkbox" id="all"></th>
-              <th>Id</th><th>State</th><th>Job</th><th>Reason</th>
+              <th style="width:24px"><input type="checkbox" id="all" aria-label="Select all"></th>
+              <th>ID</th><th>State</th><th>Job</th><th>Reason</th>
               <th class="num">Attempt</th><th class="num">Created</th>
             </tr></thead>
             <tbody id="jobs"></tbody>
-          </table>
+          </table></div>
+          <div class="pager" id="pager"></div>
+        </div>
+        <div class="module filters">
+          <div class="cap">Filter</div>
+          <div class="group">By state</div>
+          <div class="list" id="states"></div>
+          <div class="group divider">By queue</div>
+          <div class="list" id="queue-filter"></div>
         </div>
       </div>
     </div>
     <div id="jobs-detail" class="hide"></div>
   </section>
 
-  <!-- Retries -->
-  <section id="tab-retries" class="hide">
-    <h1 class="page">Retries</h1>
-    <p class="sub">Jobs that failed and are waiting to run again.</p>
-    <div class="panel">
-      <table><thead><tr><th>Id</th><th>State</th><th>Job</th><th>Reason</th>
-        <th class="num">Retry</th><th class="num">Created</th></tr></thead>
-      <tbody id="retries"></tbody></table>
+  <!-- Failures -->
+  <section id="tab-failures" class="hide">
+    <div class="title"><h2>Failures, grouped by cause</h2>
+      <span class="mini" id="fail-state">
+        <button data-fail="dead" aria-selected="true">Dead</button>
+        <button data-fail="retrying">Retrying</button>
+      </span>
     </div>
+    <div class="note" id="fail-note"></div>
+    <div id="causes"></div>
   </section>
 
   <!-- Recurring -->
   <section id="tab-recurring" class="hide">
-    <h1 class="page">Recurring jobs</h1>
-    <p class="sub">Schedules are stored by name, so re-registering one on deploy updates it in place.</p>
-    <div class="panel">
-      <table><thead><tr><th>Id</th><th>Cron</th><th>Time zone</th><th>Job</th>
-        <th class="num">Next run</th><th class="num">Last run</th><th></th></tr></thead>
-      <tbody id="recurring"></tbody></table>
-    </div>
+    <div class="title"><h2>Recurring jobs</h2><span class="sum" id="rec-sum"></span></div>
+    <p class="muted" style="margin:-8px 0 14px;font-size:11px">Schedules are stored by name, so re-registering one on deploy updates it in place.</p>
+    <div class="module tablewrap"><table>
+      <thead><tr><th>Name</th><th>Schedule</th><th>Job</th><th class="num">Next run</th>
+        <th class="num">Last run</th><th></th></tr></thead>
+      <tbody id="recurring"></tbody>
+    </table></div>
   </section>
 
   <!-- Servers -->
   <section id="tab-servers" class="hide">
-    <h1 class="page">Servers</h1>
-    <p class="sub">Servers reporting a heartbeat. One that stops is removed automatically when its lease expires.</p>
-    <div class="panel">
-      <table><thead><tr><th>Id</th><th>Host</th><th>Queues</th>
-        <th class="num">Workers</th><th class="num">Started</th><th class="num">Heartbeat</th></tr></thead>
-      <tbody id="servers"></tbody></table>
-    </div>
+    <div class="title"><h2>Servers</h2><span class="sum" id="servers-sum"></span></div>
+    <p class="muted" style="margin:-8px 0 14px;font-size:11px">Servers reporting a heartbeat. One that stops is removed automatically when its lease expires.</p>
+    <div class="module tablewrap"><table>
+      <thead><tr><th>Server</th><th>Host</th><th>Queues</th><th class="num">Workers</th>
+        <th class="num">Started</th><th class="num">Heartbeat</th></tr></thead>
+      <tbody id="servers"></tbody>
+    </table></div>
   </section>
-</main>
+</div></main>
 
 <footer>
   <span>jobsync</span>
@@ -286,10 +406,16 @@ const BASE = window.JOBSYNC_BASE || "";
 const api = (p) => BASE + "/api" + p;
 const $ = (id) => document.getElementById(id);
 const STATES = ["enqueued","running","scheduled","retrying","succeeded","dead","cancelled"];
+const GLYPH = {succeeded:"✔",dead:"✖",retrying:"↻",running:"◐",enqueued:"●",scheduled:"◷",cancelled:"–"};
+const COLOR = {succeeded:"var(--ok)",dead:"var(--bad)",retrying:"var(--warn)",running:"var(--run)",
+               enqueued:"var(--queue)",scheduled:"var(--idle)",cancelled:"#9a9a9a"};
+const TABS = ["overview","jobs","failures","recurring","servers"];
 
-let caps = {}, overview = null;
-let state = "", offset = 0, limit = 20, total = 0;
+let caps = {}, overview = null, schedules = [];
+let state = "", queueF = "", offset = 0, limit = 20, total = 0;
 let gWindow = "6h", gBucket = "5m";
+let failState = "dead", openCause = null, causes = [], causesOf = "";
+let lastOK = 0, failing = false;
 const selected = new Set();
 
 /* ---------- formatting ---------- */
@@ -317,6 +443,11 @@ const fmt = {
 };
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c =>
   ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+const cap = (s) => s ? s[0].toUpperCase() + s.slice(1) : s;
+const badge = (s, label) =>
+  `<span class="badge b-${esc(s)}">${GLYPH[s] || ""} ${esc(label ?? s)}</span>`;
+const dot = (c) => `<span class="dot" style="background:radial-gradient(circle at 35% 35%,#fff8,${c} 60%)"></span>`;
+const firstLine = (s) => String(s || "").split("\n")[0];
 
 /* ---------- transport ---------- */
 async function get(path){
@@ -336,82 +467,187 @@ function showError(e){
   const el = $("error");
   el.classList.toggle("hide", !e);
   if (e) el.textContent = e;
+  failing = !!e;
+  tickLive();
+}
+
+// The dot is the only thing that says whether the numbers on screen are current.
+function tickLive(){
+  const live = $("live");
+  live.classList.toggle("stale", failing || (lastOK && Date.now() - lastOK > 30000));
+  $("live-text").textContent = failing ? "Error — see above"
+    : lastOK ? "Live · updated " + fmt.rel(new Date(lastOK)) : "connecting…";
+}
+
+/* Buttons confirm in place: a destructive click arms the button, a second click
+   within a few seconds does the thing. A modal would steal focus from the row
+   being read, and confirm() is easy to click through on reflex. */
+function armed(btn, label, fn){
+  if (btn.dataset.armed) {
+    clearTimeout(+btn.dataset.armed);
+    disarm(btn);
+    return fn();
+  }
+  btn.dataset.was = btn.innerHTML;
+  btn.classList.add("armed");
+  btn.textContent = label;
+  btn.dataset.armed = setTimeout(() => disarm(btn), 4000);
+}
+function disarm(btn){
+  delete btn.dataset.armed;
+  btn.classList.remove("armed");
+  btn.innerHTML = btn.dataset.was;
+}
+function done(btn, label){
+  btn.classList.remove("armed");
+  btn.classList.add("done");
+  btn.textContent = label;
+  btn.disabled = true;
 }
 
 /* ---------- overview ---------- */
 async function loadOverview(){
   const d = await get(`/overview?window=${gWindow}&bucket=${gBucket}`);
   overview = d; caps = d.capabilities || {};
-  const c = d.counts;
+  const c = d.counts, qs = d.queues || [], ss = d.servers || [];
 
   // The nav pill is the Enqueued count, the same number the sidebar's Enqueued
   // row shows. An aggregate here would put two different figures under the word
   // "Jobs" on one screen.
   $("n-jobs").textContent = fmt.n(c.enqueued);
-  $("n-retries").textContent = fmt.n(c.retrying);
-  $("n-servers").textContent = fmt.n((d.servers || []).length);
+  $("n-servers").textContent = fmt.n(ss.length);
   const failed = $("n-failed");
   failed.textContent = fmt.n(c.dead);
   failed.classList.toggle("hide", !c.dead);
 
   $("f-storage").textContent = d.storage || "";
-  $("f-time").textContent = new Date().toLocaleTimeString();
+  $("crumb-storage").textContent = d.storage || "";
+  $("f-time").textContent = "server time " + new Date().toLocaleTimeString();
   $("f-gen").textContent = "generated in " + (d.generated_ms ?? 0).toFixed(2) + "ms";
+  $("search-box").classList.toggle("hide", !caps.search);
 
-  $("f-search").classList.toggle("hide", !caps.search);
-  $("ov-sub").textContent =
-    `${fmt.n(c.succeeded)} succeeded · ${fmt.n(c.dead)} dead · ${(d.servers||[]).length} server(s) reporting`;
+  const workers = ss.reduce((a,s) => a + (s.concurrency||0), 0);
+  const oldest = Math.max(0, ...qs.map(q => q.oldest_enqueued_ms || 0));
+  $("ov-sum").textContent =
+    `${fmt.n(c.succeeded)} succeeded · ${fmt.n(c.dead)} dead · ${ss.length} server${ss.length===1?"":"s"} reporting`;
 
-  $("tiles").innerHTML = [
-    ["enqueued","Enqueued"],["running","Running"],["scheduled","Scheduled"],
-    ["retrying","Retrying"],["succeeded","Succeeded"],["dead","Dead"],
-  ].map(([k,label]) =>
-    `<div class="tile"><div class="n" style="color:var(--${tone(k)})">${fmt.n(c[k])}</div>
-     <div class="k">${label}</div></div>`).join("");
+  const notes = {
+    enqueued: oldest ? "oldest " + fmt.dur(oldest) : "nothing waiting",
+    running: workers ? `of ${fmt.n(workers)} workers` : "no workers",
+    scheduled: "waiting for their time",
+    retrying: "backing off",
+    succeeded: "kept per retention",
+    dead: c.dead && causesOf === "dead" && causes.length
+      ? `${causes.length} distinct cause${causes.length===1?"":"s"}` : c.dead ? "out of attempts" : "none",
+  };
+  $("tiles").innerHTML = ["enqueued","running","scheduled","retrying","succeeded","dead"].map(k => `
+    <button class="tile" data-tile="${k}">
+      <div class="k">${dot(COLOR[k])}${cap(k)}</div>
+      <div class="n" style="${k==="dead" && c.dead ? "color:var(--bad)" : ""}">${fmt.n(c[k])}</div>
+      <div class="hint">${esc(notes[k])}</div></button>`).join("");
+  bind("[data-tile]", b => {
+    if (b.dataset.tile === "dead") return go("failures");
+    state = b.dataset.tile; queueF = ""; offset = 0; go("jobs");
+  });
 
   drawGraph(d.throughput, caps.throughput);
-  renderQueues(d.queues || []);
-  renderServers(d.servers || []);
+  renderQueues(qs);
+  renderServers(ss);
   renderStates(c);
+  renderQueueFilter(qs);
+  renderFacts(d);
 }
-const tone = (s) => ({succeeded:"ok",dead:"bad",cancelled:"bad",running:"run",
-                      retrying:"warn",enqueued:"accent",scheduled:"muted"})[s] || "text";
 
 function renderQueues(qs){
   $("queues").innerHTML = qs.length ? qs.map(q => `
-    <tr class="row"><td class="mono">${esc(q.name)}
-        ${q.paused ? '<span class="badge b-retrying">paused</span>' : ""}</td>
+    <tr><td><a data-queue-open="${esc(q.name)}"><b>${esc(q.name)}</b></a>
+        ${q.paused ? '<span class="badge b-paused">paused</span>' : ""}</td>
       <td class="num">${fmt.n(q.enqueued)}</td><td class="num">${fmt.n(q.running)}</td>
-      <td class="num">${q.oldest_enqueued_ms ? fmt.dur(q.oldest_enqueued_ms) : "—"}</td>
-      <td style="text-align:right">${caps.pause ? `<button class="btn" data-queue="${esc(q.name)}"
+      <td class="num muted">${q.oldest_enqueued_ms ? fmt.dur(q.oldest_enqueued_ms) : "—"}</td>
+      <td class="num">${caps.pause ? `<button class="btn" data-queue="${esc(q.name)}"
         data-paused="${q.paused?1:0}">${q.paused?"Resume":"Pause"}</button>` : ""}</td></tr>`).join("")
     : `<tr><td colspan="5" class="empty">No queues yet</td></tr>`;
   bind("[data-queue]", async b => {
     await post(`/queues/${encodeURIComponent(b.dataset.queue)}/${b.dataset.paused==="1"?"resume":"pause"}`);
     refresh();
   });
+  bind("[data-queue-open]", b => { queueF = b.dataset.queueOpen; state = ""; offset = 0; go("jobs"); });
 }
 
 function renderServers(ss){
+  const workers = ss.reduce((a,s) => a + (s.concurrency||0), 0);
+  // A heartbeat older than a minute is still listed by the driver until its lease
+  // lapses, but it is no longer doing work an operator should count on.
+  const alive = (s) => Date.now() - new Date(s.heartbeat_at).getTime() < 60000;
+  $("srv-sum").textContent = ss.length ? `· ${fmt.n(workers)} workers` : "";
+  $("n-servers").textContent = fmt.n(ss.length);
+  $("servers-sum").textContent = `${ss.length} server${ss.length===1?"":"s"} · ${fmt.n(workers)} workers`;
+  $("srv-list").innerHTML = ss.length ? ss.map(s => `
+    <div class="srv">${dot(alive(s) ? "#3fbf3a" : "#d9a12a")}
+      <span class="grow mono">${esc(s.hostname || s.id)}</span>
+      <span class="muted">${s.concurrency} workers</span></div>`).join("")
+    : `<div class="empty">No servers are reporting</div>`;
   $("servers").innerHTML = ss.length ? ss.map(s => `
-    <tr class="row"><td class="mono">${esc(s.id)}</td><td>${esc(s.hostname)}</td>
+    <tr><td><span style="display:inline-flex;align-items:center;gap:7px">${dot(alive(s) ? "#3fbf3a" : "#d9a12a")}
+        <span class="mono">${esc(s.id)}</span></span></td>
+      <td>${esc(s.hostname)}</td>
       <td class="mono">${esc((s.queues||[]).join(", "))}</td>
       <td class="num">${s.concurrency}</td>
-      <td class="num when">${fmt.rel(s.started_at)}</td>
-      <td class="num when">${fmt.rel(s.heartbeat_at)}</td></tr>`).join("")
+      <td class="num muted">${fmt.rel(s.started_at)}</td>
+      <td class="num muted">${fmt.rel(s.heartbeat_at)}</td></tr>`).join("")
     : `<tr><td colspan="6" class="empty">No servers are reporting a heartbeat</td></tr>`;
 }
 
-function renderStates(c){
-  $("states").innerHTML = [["","All"]].concat(STATES.map(s => [s, s[0].toUpperCase()+s.slice(1)]))
-    .map(([k,label]) => `<button data-state="${k}" aria-selected="${state===k}">
-        <span>${label}</span>
-        <span class="pill ${k==="dead"&&c.dead?"bad":"neutral"}">${k ? fmt.n(c[k]) : fmt.n(
-          STATES.reduce((a,s)=>a+c[s],0))}</span></button>`).join("");
-  bind("[data-state]", b => { state = b.dataset.state; offset = 0; loadJobs(); });
+function renderFacts(d){
+  const yes = (v) => v ? `<span style="color:var(--ok)">✔ yes</span>` : `<span class="faint">– no</span>`;
+  $("facts").innerHTML = `
+    <span>Driver</span><span class="mono">${esc(d.storage || "—")}</span>
+    <span>Query time</span><span class="mono">${(d.generated_ms ?? 0).toFixed(2)} ms</span>
+    <span>Search</span>${yes(caps.search)}
+    <span>Throughput</span>${yes(caps.throughput)}
+    <span>Schedules</span>${yes(caps.schedules)}
+    <span>Queue pause</span>${yes(caps.pause)}`;
 }
 
-/* ---------- graph: stacked area, no library ---------- */
+// The overview leads with whatever is broken. Grouping happens here rather than
+// in the API so every driver gets it without implementing anything.
+function renderAttention(){
+  const c = overview?.counts || {};
+  const el = $("attention");
+  if (!c.dead) {
+    el.innerHTML = `<div class="module calm"><div class="cap">Nothing needs attention</div>
+      <div class="body" style="font-size:12px">No dead jobs.${c.retrying
+        ? ` ${fmt.n(c.retrying)} job${c.retrying===1?" is":"s are"} backing off before a retry.` : ""}</div></div>`;
+    return;
+  }
+  const top = causesOf === "dead" ? causes[0] : null;
+  el.innerHTML = `<div class="module alarm"><div class="cap">Needs attention</div>
+    <div class="body stack" style="gap:10px;font-size:12px">
+      ${top ? `<div><b>${fmt.n(top.jobs.length)} job${top.jobs.length===1?"":"s"}</b>
+          ${top.jobs.length===1 ? "died with" : "died with the same error"}:
+          <div style="margin-top:4px"><code style="color:var(--bad);word-break:break-word">${esc(top.message.slice(0,160))}</code></div>
+          <div class="sub-line">in ${esc(top.kind)}</div></div>`
+        : `<div><b>${fmt.n(c.dead)}</b> jobs ran out of attempts.</div>`}
+      <div><button class="btn primary" data-go="failures">Review failures</button></div>
+    </div></div>`;
+  bindGo(el);
+}
+
+function renderStates(c){
+  const all = STATES.reduce((a,s) => a + (c[s]||0), 0);
+  $("states").innerHTML = [["","All", all]].concat(STATES.map(s => [s, cap(s), c[s]]))
+    .map(([k,label,n]) => `<button data-state="${k}" aria-selected="${state===k}">
+        <span>${label}</span><span class="${k==="dead" && n ? "count alarm" : "c"}">${fmt.n(n)}</span></button>`).join("");
+  bind("[data-state]", b => { state = b.dataset.state; offset = 0; loadJobs(); });
+}
+function renderQueueFilter(qs){
+  $("queue-filter").innerHTML = [["","All"]].concat(qs.map(q => [q.name, q.name]))
+    .map(([k,label]) => `<button data-qf="${esc(k)}" aria-selected="${queueF===k}">
+        <span class="${k?"mono":""}">${esc(label)}</span></button>`).join("");
+  bind("[data-qf]", b => { queueF = b.dataset.qf; offset = 0; loadJobs(); });
+}
+
+/* ---------- graph: area chart, no library ---------- */
 // Drivers return only buckets that contain something. Plotting those directly
 // draws a straight line between two distant points and reads as a smooth decline
 // when the truth is "two samples, nothing in between" — so the empty buckets are
@@ -436,56 +672,52 @@ const DUR = {"1m":60e3,"5m":300e3,"15m":900e3,"1h":3600e3,"6h":6*3600e3,
 
 function drawGraph(raw, supported){
   const el = $("graph"), note = $("g-note");
-  if (!supported){ el.innerHTML = ""; note.textContent = "— not available on this driver"; return; }
+  if (!supported){ el.innerHTML = `<div class="empty">Not available on this driver</div>`;
+                   note.textContent = ""; return; }
 
   const buckets = fillBuckets(raw || [], DUR[gWindow], DUR[gBucket]);
-  if (!buckets.length){ el.innerHTML = `<div class="empty">Nothing finished in this window</div>`;
-                        note.textContent = ""; return; }
-
-  const W = 1000, H = 150, PAD = 28;
+  const W = 1000, H = 150, PAD = 34;
   const max = Math.max(...buckets.map(b => (b.Succeeded||0)+(b.Failed||0)), 1);
   const x = (i) => PAD + (i/(Math.max(buckets.length-1,1))) * (W - PAD - 8);
   const y = (v) => H - (v/max) * (H - 12);
-
-  const area = (pick) => {
-    const pts = buckets.map((b,i) => `${x(i)},${y(pick(b))}`);
-    return `M${x(0)},${H} L${pts.join(" L")} L${x(buckets.length-1)},${H} Z`;
-  };
   const total = (b) => (b.Succeeded||0)+(b.Failed||0);
+  const line = (pick) => buckets.map((b,i) => `${x(i).toFixed(1)},${y(pick(b)).toFixed(1)}`).join(" ");
+  const area = (pick) => `M${x(0)},${H} L${line(pick).split(" ").join(" L")} L${x(buckets.length-1)},${H} Z`;
 
   const ticks = [0, max/2, max].map(v =>
     `<line class="gridline" x1="${PAD}" y1="${y(v)}" x2="${W-8}" y2="${y(v)}"/>
-     <text class="axis" x="0" y="${y(v)+3}">${Math.round(v)}</text>`).join("");
+     <text class="axis" x="0" y="${y(v)+3}">${fmt.n(Math.round(v))}</text>`).join("");
+  const every = Math.max(1, Math.ceil(buckets.length/6));
+  const labels = buckets.map((b,i) => (i % every === 0)
+    ? `<text class="axis" x="${x(i)}" y="${H+16}" text-anchor="middle">${
+        gWindow === "168h"
+          ? new Date(b.At).toLocaleDateString([], {weekday:"short"})
+          : new Date(b.At).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}</text>` : "").join("");
 
-  const labels = buckets.map((b,i) =>
-    (i % Math.max(1, Math.ceil(buckets.length/7)) === 0)
-      ? `<text class="axis" x="${x(i)}" y="${H+14}" text-anchor="middle">${
-          new Date(b.At).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}</text>` : "").join("");
-
-  el.innerHTML = `<svg viewBox="0 -6 ${W} ${H+24}" preserveAspectRatio="none">
+  el.innerHTML = `<svg viewBox="0 -6 ${W} ${H+28}" preserveAspectRatio="none" role="img"
+      aria-label="Jobs finished per bucket">
     ${ticks}
-    <path d="${area(total)}" fill="var(--ok)" opacity=".28"/>
-    <path d="${area(b => b.Failed||0)}" fill="var(--bad)" opacity=".75"/>
-    <polyline points="${buckets.map((b,i)=>`${x(i)},${y(total(b))}`).join(" ")}"
-              fill="none" stroke="var(--ok)" stroke-width="1.5"/>
+    <path d="${area(total)}" fill="#3fa14a" opacity=".22"/>
+    <polyline points="${line(total)}" fill="none" stroke="#5ccf5a" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
+    <polyline points="${line(b => b.Failed||0)}" fill="none" stroke="#ff6b5e" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
     ${labels}
     ${buckets.map((b,i)=>`<rect x="${x(i)-6}" y="-6" width="12" height="${H+6}" fill="transparent"
        data-i="${i}" style="cursor:crosshair"/>`).join("")}
-  </svg>`;
+  </svg>
+  <div class="legend"><span><i style="background:#3fa14a55;border-color:#5ccf5a"></i>Finished</span>
+    <span><i style="background:#ff6b5e33;border-color:#ff6b5e"></i>Failed</span></div>`;
 
   const sum = buckets.reduce((a,b) => a+total(b), 0);
   const bad = buckets.reduce((a,b) => a+(b.Failed||0), 0);
-  note.textContent = sum
-    ? `— ${fmt.n(sum)} finished, ${fmt.n(bad)} failed`
-    : "— nothing finished in this window";
+  note.textContent = sum ? `· ${fmt.n(sum)} finished, ${fmt.n(bad)} failed` : "· nothing finished in this window";
 
   const tip = $("tip");
   el.querySelectorAll("rect[data-i]").forEach(r => {
-    r.onmouseenter = (e) => {
+    r.onmouseenter = () => {
       const b = buckets[+r.dataset.i];
       tip.innerHTML = `<b>${fmt.time(b.At)}</b>
-        <i style="background:var(--ok)"></i>Succeeded: ${fmt.n(b.Succeeded)}<br>
-        <i style="background:var(--bad)"></i>Failed: ${fmt.n(b.Failed)}`;
+        <i style="background:#5ccf5a"></i>Succeeded: ${fmt.n(b.Succeeded)}<br>
+        <i style="background:#ff6b5e"></i>Failed: ${fmt.n(b.Failed)}`;
       tip.style.display = "block";
     };
     r.onmousemove = (e) => { tip.style.left = (e.clientX+14)+"px"; tip.style.top = (e.clientY+14)+"px"; };
@@ -497,74 +729,82 @@ function drawGraph(raw, supported){
 function jobQuery(extra){
   const p = new URLSearchParams();
   if (state) p.set("state", state);
-  const add = (k,id) => { const v = $(id).value.trim(); if (v) p.set(k,v); };
-  add("queue","f-queue"); add("kind","f-kind");
-  if (caps.search) add("search","f-search");
+  if (queueF) p.set("queue", queueF);
+  const kind = $("f-kind").value.trim();
+  if (kind) p.set("kind", kind);
+  const search = $("f-search").value.trim();
+  if (caps.search && search) p.set("search", search);
   Object.entries(extra || {}).forEach(([k,v]) => p.set(k,v));
   return p;
 }
 
 async function loadJobs(){
-  const p = jobQuery({offset, limit});
   let d;
-  try { d = await get("/jobs?" + p); }
+  try { d = await get("/jobs?" + jobQuery({offset, limit})); }
   catch (e) { showError(e.message); return; }
   showError(null);
 
   total = d.total || 0;
   selected.clear(); syncActions(); $("all").checked = false;
-  $("jobs-title").textContent = state ? state[0].toUpperCase()+state.slice(1)+" jobs" : "Jobs";
-  $("jobs-sub").textContent =
-    `${fmt.n(total)} matching · as of ${new Date().toLocaleTimeString()} — press Refresh to update`;
+  $("jobs-title").textContent = state ? cap(state) + " jobs" : "Select a job to inspect";
+  $("jobs-sum").textContent = `${fmt.n(total)} matching${queueF ? " in " + queueF : ""} · as of ${
+    new Date().toLocaleTimeString()} — Refresh to update`;
+  if (overview) { renderStates(overview.counts); renderQueueFilter(overview.queues || []); }
 
   $("jobs").innerHTML = (d.jobs||[]).length ? d.jobs.map(rowFor).join("")
     : `<tr><td colspan="7" class="empty">No jobs match this filter</td></tr>`;
   wireRows();
-
-  $("page").textContent = total ? `${offset+1}–${Math.min(offset+limit,total)} of ${fmt.n(total)}` : "";
-  $("prev").disabled = offset === 0;
-  $("next").disabled = offset + limit >= total;
-  renderPerPage();
+  renderPager();
 }
 
 function rowFor(j){
   // The reason column is why this table beats a tile grid during an incident:
   // the failure message is visible without opening anything.
-  const reason = j.last_error
-    ? `<span class="mono">${esc(j.last_error.split("\n")[0].slice(0,90))}</span>` : "";
-  return `<tr class="row" data-row="${esc(j.id)}">
-    <td><input type="checkbox" data-pick="${esc(j.id)}"></td>
-    <td><a class="id" data-open="${esc(j.id)}">${esc(j.id.slice(0,10))}…</a></td>
-    <td><span class="badge b-${j.state}">${j.state}</span></td>
-    <td class="mono">${esc(j.kind)}<div class="muted" style="color:var(--muted)">${esc(j.queue)}</div></td>
-    <td>${reason}</td>
+  return `<tr data-row="${esc(j.id)}">
+    <td><input type="checkbox" data-pick="${esc(j.id)}" aria-label="Select ${esc(j.id)}"></td>
+    <td><a class="id" data-open="${esc(j.id)}" title="${esc(j.id)}">${esc(j.id.slice(0,8))}…</a></td>
+    <td>${badge(j.state)}</td>
+    <td><span class="mono">${esc(j.kind)}</span><div class="sub-line">queue: ${esc(j.queue)}</div></td>
+    <td>${j.last_error ? `<div class="reason" title="${esc(firstLine(j.last_error))}">${esc(firstLine(j.last_error))}</div>` : ""}</td>
     <td class="num">${j.attempt}/${j.max_attempts}</td>
-    <td class="num when">${fmt.rel(j.created_at)}</td></tr>`;
+    <td class="num muted">${fmt.rel(j.created_at)}</td></tr>`;
 }
 
 function wireRows(){
-  bind("[data-pick]", null);
   document.querySelectorAll("[data-pick]").forEach(cb => {
-    cb.onclick = (e) => { e.stopPropagation();
-      cb.checked ? selected.add(cb.dataset.pick) : selected.delete(cb.dataset.pick); syncActions(); };
+    cb.onclick = () => {
+      cb.checked ? selected.add(cb.dataset.pick) : selected.delete(cb.dataset.pick);
+      cb.closest("tr").classList.toggle("picked", cb.checked);
+      syncActions();
+    };
   });
-  document.querySelectorAll("[data-open]").forEach(a => {
-    a.onclick = (e) => { e.stopPropagation(); openDetail(a.dataset.open); };
+  document.querySelectorAll("#jobs [data-open]").forEach(a => {
+    a.onclick = () => go("jobs", a.dataset.open);
   });
 }
 
-function renderPerPage(){
-  const el = $("perpage");
-  el.innerHTML = `<span>Per page:</span>` + [10,20,50,100,500].map(n =>
-    `<button data-limit="${n}" aria-selected="${limit===n}">${n}</button>`).join("");
-  bind("[data-limit]", b => { limit = +b.dataset.limit; offset = 0; loadJobs(); });
+function renderPager(){
+  const pages = Math.max(1, Math.ceil(total/limit)), cur = Math.floor(offset/limit) + 1;
+  const want = new Set([1, pages, cur-1, cur, cur+1].filter(n => n >= 1 && n <= pages));
+  const nums = [...want].sort((a,b) => a-b);
+  let html = `<button class="link" data-page="${cur-1}" ${cur===1?"disabled":""}>‹ Prev</button>`;
+  nums.forEach((n,i) => {
+    if (i && n - nums[i-1] > 1) html += `<span>…</span>`;
+    html += n === cur ? `<span class="cur">${n}</span>` : `<button class="link" data-page="${n}">${n}</button>`;
+  });
+  html += `<button class="link" data-page="${cur+1}" ${cur===pages?"disabled":""}>Next ›</button>
+    <span class="grow"></span><span>${total ? `${fmt.n(offset+1)}–${fmt.n(Math.min(offset+limit,total))} of ${fmt.n(total)}` : ""}</span>`;
+  $("pager").innerHTML = html;
+  bind("[data-page]", b => {
+    if (b.disabled) return;
+    offset = (+b.dataset.page - 1) * limit; loadJobs();
+  });
 }
 
 function syncActions(){
   const n = selected.size;
-  $("requeue").disabled = !n; $("delete").disabled = !n;
-  $("requeue").textContent = n ? `Requeue ${n}` : "Requeue";
-  $("delete").textContent = n ? `Delete ${n}` : "Delete";
+  $("go").disabled = !n || !$("action").value;
+  $("sel-count").textContent = `${n} of ${Math.min(limit, total)} selected`;
 }
 
 /* ---------- job detail ---------- */
@@ -575,91 +815,289 @@ async function openDetail(id){
   const j = d.job, ts = d.transitions || [];
 
   // Deltas between states turn the history into a latency story: how long it
-  // waited, how long it ran, how long until the retry.
-  const tl = ts.map((t,i) => {
-    const prev = i ? new Date(ts[i-1].at).getTime() : null;
-    const delta = prev !== null ? ` (+${fmt.dur(new Date(t.at).getTime()-prev)})` : "";
-    return `<div class="tl s-${t.state}">
-      <header><span class="st">${t.state}</span>
-        <span class="when">${fmt.time(t.at)}${delta}</span></header>
-      ${t.reason ? `<div class="reason">${esc(t.reason)}</div>` : ""}</div>`;
-  }).join("");
+  // waited, how long it ran, how long until the retry. Newest first, because the
+  // newest state is the one somebody opened this page to read.
+  const hist = ts.map((t,i) => {
+    const delta = i ? ` (+${fmt.dur(new Date(t.at).getTime() - new Date(ts[i-1].at).getTime())})` : "";
+    return {t, delta};
+  }).reverse().map(({t, delta}, i) => `
+    <div class="hcard" style="${i===0 ? `border-color:${COLOR[t.state]};` : ""}">
+      <div class="t"><b style="color:${COLOR[t.state] || "var(--text)"}">${GLYPH[t.state] || ""} ${esc(cap(t.state))}</b>
+        <span class="when" title="${esc(fmt.time(t.at))}">${fmt.rel(t.at)}${delta}</span></div>
+      ${t.reason ? `<pre>${esc(t.reason)}</pre>` : ""}</div>`).join("");
+
+  const sig = j.last_error ? signature(j.kind, j.last_error) : null;
+  const group = sig && causes.find(c => c.sig === sig);
+  const others = group ? group.jobs.filter(x => x.id !== j.id).length : 0;
 
   $("jobs-list").classList.add("hide");
   const el = $("jobs-detail");
   el.classList.remove("hide");
   el.innerHTML = `
-    <button class="back" id="back">← Back to jobs</button>
-    <h1 class="page mono" style="font-size:22px">${esc(j.kind)}</h1>
-    <p class="sub mono">${esc(j.id)} <span class="badge b-${j.state}">${j.state}</span></p>
-    <div class="toolbar panel" style="border-radius:7px;margin-bottom:18px;border-bottom:1px solid var(--border)">
-      <button class="btn primary" id="d-requeue">Requeue</button>
-      <button class="btn danger" id="d-delete">Delete</button>
+    <div class="detail-head">
+      <div><div style="font-size:11px;margin-bottom:4px"><a data-go="jobs">← Back to jobs</a></div>
+        <h2>${esc(j.kind)}</h2>
+        <div class="meta"><span class="mono muted">${esc(j.id)}</span>
+          ${badge(j.state, `${j.state} · attempt ${j.attempt} of ${j.max_attempts}`)}</div></div>
+      <div style="display:flex;gap:6px">
+        <button class="btn primary big" id="d-requeue">Requeue</button>
+        <button class="btn danger big" id="d-delete">Delete…</button>
+      </div>
     </div>
-    <div class="panel"><h2>Details</h2>
-      <dl class="kv">
-        <dt>Queue</dt><dd>${esc(j.queue)}</dd>
-        <dt>Attempt</dt><dd>${j.attempt} of ${j.max_attempts}</dd>
-        <dt>Priority</dt><dd>${j.priority}</dd>
-        <dt>Created</dt><dd>${fmt.time(j.created_at)}</dd>
-        <dt>Scheduled</dt><dd>${fmt.time(j.scheduled_at)}</dd>
-        ${j.finished_at ? `<dt>Finished</dt><dd>${fmt.time(j.finished_at)}</dd>` : ""}
-        ${j.owner ? `<dt>Owner</dt><dd>${esc(j.owner)}</dd>` : ""}
-        ${j.tags?.length ? `<dt>Tags</dt><dd>${esc(j.tags.join(", "))}</dd>` : ""}
-      </dl></div>
-    <div class="panel"><h2>Payload</h2>
-      <div style="padding:14px"><pre>${esc(pretty(j.payload))}</pre></div></div>
-    ${j.last_error ? `<div class="panel"><h2 style="color:var(--bad)">Last error</h2>
-      <div style="padding:14px"><pre style="color:var(--bad)">${esc(j.last_error)}</pre></div></div>` : ""}
-    <div class="panel"><h2>State history</h2>
-      <div class="timeline">${tl || '<div class="empty">No transitions recorded</div>'}</div></div>`;
+    <div class="cols wide-side">
+      <div class="stack">
+        <div class="module"><div class="cap">Invocation</div>${invocation(j)}</div>
+        ${j.last_error ? `<div class="module alarm"><div class="cap">Last error · attempt ${j.attempt}</div>
+          <div class="body"><pre class="trace">${trace(j.last_error)}</pre>
+          ${others ? `<div style="margin-top:10px;font-size:11px">${fmt.n(others)} other job${others===1?"":"s"}
+            failed the same way. <a data-cause="${esc(sig)}">See the group →</a></div>` : ""}</div></div>` : ""}
+        <div class="module"><div class="cap">Parameters</div><table class="kv"><tbody>
+          <tr><td>Queue · Priority</td><td><a class="mono" data-queue-open="${esc(j.queue)}">${esc(j.queue)}</a> · ${j.priority}</td></tr>
+          <tr><td>Attempt</td><td>${j.attempt} of ${j.max_attempts}</td></tr>
+          <tr><td>Created</td><td>${fmt.time(j.created_at)} <span class="faint">· ${fmt.rel(j.created_at)}</span></td></tr>
+          <tr><td>Scheduled</td><td>${fmt.time(j.scheduled_at)} <span class="faint">· ${fmt.rel(j.scheduled_at)}</span></td></tr>
+          ${j.finished_at ? `<tr><td>Finished</td><td>${fmt.time(j.finished_at)} <span class="faint">· ${fmt.rel(j.finished_at)}</span></td></tr>` : ""}
+          ${j.owner ? `<tr><td>Owner</td><td class="mono">${esc(j.owner)}</td></tr>` : ""}
+          ${j.tags?.length ? `<tr><td>Tags</td><td>${j.tags.map(t => `<code>${esc(t)}</code>`).join(" ")}</td></tr>` : ""}
+        </tbody></table></div>
+      </div>
+      <div class="module"><div class="cap">State history <span class="muted">${ts.length} state${ts.length===1?"":"s"}</span></div>
+        <div class="body hist">${hist || '<div class="empty">No transitions recorded</div>'}</div></div>
+    </div>`;
 
-  $("back").onclick = closeDetail;
-  $("d-requeue").onclick = async () => { await post("/jobs/requeue", {ids:[j.id]}); closeDetail(); refresh(); };
-  $("d-delete").onclick = async () => {
-    if (!confirm("Delete this job? This cannot be undone.")) return;
-    await post("/jobs/delete", {ids:[j.id]}); closeDetail(); refresh();
-  };
+  bindGo(el);
+  bind("#jobs-detail [data-queue-open]", b => { queueF = b.dataset.queueOpen; state = ""; offset = 0; go("jobs"); });
+  bind("#jobs-detail [data-cause]", b => { openCause = b.dataset.cause; go("failures"); });
+  bind("#d-requeue", async b => { await post("/jobs/requeue", {ids:[j.id]}); done(b, "Requeued ✓"); refresh(true); });
+  bind("#d-delete", b => armed(b, "Click again to delete", async () => {
+    await post("/jobs/delete", {ids:[j.id]}); go("jobs"); refresh();
+  }));
 }
-function closeDetail(){ $("jobs-detail").classList.add("hide"); $("jobs-list").classList.remove("hide"); }
-function pretty(s){ if(!s) return "(empty)";
-  try { return JSON.stringify(JSON.parse(s), null, 2); } catch { return s; } }
 
-/* ---------- retries / recurring ---------- */
-async function loadRetries(){
-  const d = await get("/jobs?state=retrying&limit=100");
-  $("retries").innerHTML = (d.jobs||[]).length ? d.jobs.map(j => `
-    <tr class="row"><td><a class="id" data-open="${esc(j.id)}">${esc(j.id.slice(0,10))}…</a></td>
-      <td><span class="badge b-${j.state}">${j.state}</span></td>
-      <td class="mono">${esc(j.kind)}</td>
-      <td class="mono">${esc((j.last_error||"").split("\n")[0].slice(0,80))}</td>
-      <td class="num when">${fmt.rel(j.scheduled_at)}</td>
-      <td class="num when">${fmt.rel(j.created_at)}</td></tr>`).join("")
-    : `<tr><td colspan="6" class="empty">Nothing is waiting to retry</td></tr>`;
-  document.querySelectorAll("#retries [data-open]").forEach(a => {
-    a.onclick = () => { showTab("jobs"); openDetail(a.dataset.open); };
+// The job shown as the call that made it: the kind and its arguments, rather than
+// a JSON blob in a box.
+function invocation(j){
+  let args;
+  try { args = hlJSON(JSON.stringify(JSON.parse(j.payload), null, 2)); }
+  catch { args = j.payload ? `<span class="c-str">${esc(j.payload)}</span>` : ""; }
+  return `<pre class="code"><span class="c-com">// queue ${esc(JSON.stringify(j.queue))} · priority ${j.priority} · created ${esc(fmt.rel(j.created_at))}</span>
+<span class="c-fn">${esc(j.kind)}</span>(${args})</pre>`;
+}
+function hlJSON(s){
+  const re = /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g;
+  let out = "", last = 0, m;
+  while ((m = re.exec(s))) {
+    out += esc(s.slice(last, m.index));
+    if (m[1]) out += m[2] ? `<span class="c-key">${esc(m[1])}</span>${esc(m[2])}` : `<span class="c-str">${esc(m[1])}</span>`;
+    else if (m[3]) out += `<span class="c-kw">${m[3]}</span>`;
+    else out += `<span class="c-num">${m[4]}</span>`;
+    last = re.lastIndex;
+  }
+  return out + esc(s.slice(last));
+}
+// The first line of an error is what the handler returned; the rest is whatever
+// was wrapped around it. Highlighting it is the one-glance answer to "what broke".
+function trace(err){
+  const [head, ...rest] = String(err).split("\n");
+  return `<span class="first">${esc(head)}</span>${rest.length ? "\n" + esc(rest.join("\n")) : ""}`;
+}
+
+/* ---------- failures ---------- */
+// Errors carry IDs, counts and addresses that differ per job; grouping on the raw
+// text would give every job its own group. Masking them first collapses
+// "order 41 not found" and "order 97 not found" into one cause.
+function signature(kind, err){
+  const msg = firstLine(err)
+    .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "<id>")
+    .replace(/\b0x[0-9a-f]+\b/gi, "<hex>")
+    .replace(/\b[0-9a-f]{12,}\b/gi, "<id>")
+    .replace(/\d+(\.\d+)?/g, "<n>");
+  return kind + "\n" + msg;
+}
+
+const FAIL_SAMPLE = 500;
+async function loadCauses(st, sample){
+  const d = await get(`/jobs?state=${st}&limit=${sample}`);
+  const by = new Map();
+  for (const j of d.jobs || []) {
+    const sig = signature(j.kind, j.last_error || "(no error recorded)");
+    if (!by.has(sig)) by.set(sig, {sig, kind:j.kind, message:firstLine(j.last_error) || "(no error recorded)",
+                                   sample:j, jobs:[]});
+    by.get(sig).jobs.push(j);
+  }
+  causes = [...by.values()].sort((a,b) => b.jobs.length - a.jobs.length);
+  causesOf = st;
+  return {total: d.total || 0, seen: (d.jobs || []).length};
+}
+
+async function loadFailures(){
+  let r;
+  try { r = await loadCauses(failState, FAIL_SAMPLE); }
+  catch (e) { showError(e.message); return; }
+  showError(null);
+  document.querySelectorAll("#fail-state button").forEach(b =>
+    b.setAttribute("aria-selected", String(b.dataset.fail === failState)));
+
+  $("fail-note").innerHTML = failState === "dead"
+    ? `<b>Dead jobs ran out of attempts and stay until you act on them,</b> so there is no hurry to requeue.
+       Fix the cause first, then requeue the group. ${r.total > r.seen
+         ? `Grouped from the ${fmt.n(r.seen)} most recent of ${fmt.n(r.total)}.` : ""}`
+    : `<b>These jobs failed and will run again on their own</b> after a back-off. Requeue only to retry now.
+       ${r.total > r.seen ? `Grouped from the ${fmt.n(r.seen)} most recent of ${fmt.n(r.total)}.` : ""}`;
+
+  if (!causes.length) {
+    $("causes").innerHTML = `<div class="module"><div class="empty">${
+      failState === "dead" ? "No dead jobs. Nothing has run out of attempts." : "Nothing is waiting to retry."}</div></div>`;
+    return;
+  }
+  if (openCause === null || !causes.some(c => c.sig === openCause)) openCause = causes[0].sig;
+
+  $("causes").innerHTML = causes.map((c, i) => {
+    const open = c.sig === openCause;
+    const times = c.jobs.map(j => new Date(j.finished_at || j.created_at).getTime());
+    const lo = Math.min(...times), hi = Math.max(...times);
+    const bars = Array(12).fill(0);
+    for (const t of times) bars[hi === lo ? 11 : Math.min(11, Math.floor((t-lo)/(hi-lo)*12))]++;
+    const peak = Math.max(...bars);
+    const queues = [...new Set(c.jobs.map(j => j.queue))];
+    const attempts = c.jobs.map(j => j.attempt);
+    const variants = new Set(c.jobs.map(j => firstLine(j.last_error))).size;
+    return `<div class="cause">
+      <header data-toggle="${i}" aria-expanded="${open}">
+        <span class="arrow">${open ? "▼" : "▶"}</span>
+        <div style="min-width:0">
+          <div style="display:flex;align-items:center;gap:8px"><span class="kind">${esc(c.kind)}</span>
+            <span class="count alarm">${fmt.n(c.jobs.length)}</span></div>
+          <div class="msg" title="${esc(c.message)}">${esc(c.message)}</div>
+          <div class="where">${esc(queues.join(", "))} · last ${fmt.rel(new Date(hi))}</div>
+        </div>
+        <div class="spark" title="Failures over the group's time span">${bars.map(n =>
+          `<i style="height:${Math.round(n/peak*100)}%"></i>`).join("")}</div>
+        <div class="acts">
+          <button class="btn primary" data-requeue="${i}">Requeue all ${fmt.n(c.jobs.length)}</button>
+          <button class="btn danger" data-del="${i}">Delete…</button>
+        </div>
+      </header>
+      ${open ? `<div class="open">
+        <div><div class="label">Error · representative job <a data-open="${esc(c.sample.id)}" class="mono">${esc(c.sample.id.slice(0,8))}</a></div>
+          <pre class="trace">${trace(c.sample.last_error || "(no error recorded)")}</pre></div>
+        <div><div class="label">Across these ${fmt.n(c.jobs.length)} jobs</div>
+          <div class="facts" style="grid-template-columns:100px 1fr">
+            <span>Job</span><span class="mono" style="text-align:left">${esc(c.kind)}</span>
+            <span>Queues</span><span class="mono" style="text-align:left">${esc(queues.join(", "))}</span>
+            <span>Attempts</span><span style="text-align:left">${Math.min(...attempts)}${
+              Math.min(...attempts) !== Math.max(...attempts) ? "–" + Math.max(...attempts) : ""}</span>
+            <span>First seen</span><span style="text-align:left">${fmt.rel(new Date(lo))}</span>
+            <span>Last seen</span><span style="text-align:left">${fmt.rel(new Date(hi))}</span>
+            <span>Messages</span><span style="text-align:left">${variants === 1 ? "identical" : `${variants} variants, differing only in ids and numbers`}</span>
+          </div>
+          <div style="margin-top:12px;font-size:11px"><a data-list="${i}">View ${fmt.n(c.jobs.length)} job${c.jobs.length===1?"":"s"} in the list →</a></div>
+        </div></div>` : ""}
+    </div>`;
+  }).join("");
+
+  document.querySelectorAll("[data-toggle]").forEach(h => {
+    h.onclick = (e) => {
+      if (e.target.closest("button,a")) return;
+      const c = causes[+h.dataset.toggle];
+      openCause = openCause === c.sig ? "" : c.sig;
+      loadFailures();
+    };
+  });
+  bind("#causes [data-open]", a => go("jobs", a.dataset.open));
+  bind("[data-list]", a => {
+    const c = causes[+a.dataset.list];
+    state = failState; queueF = ""; offset = 0; $("f-kind").value = c.kind; go("jobs");
+  });
+  bind("[data-requeue]", async b => {
+    const c = causes[+b.dataset.requeue];
+    await post("/jobs/requeue", {ids:c.jobs.map(j => j.id)});
+    done(b, "Requeued ✓");
+    refresh(true);
+  });
+  bind("[data-del]", b => {
+    const c = causes[+b.dataset.del];
+    return armed(b, `Delete ${fmt.n(c.jobs.length)}?`, async () => {
+      await post("/jobs/delete", {ids:c.jobs.map(j => j.id)});
+      done(b, "Deleted ✓");
+      setTimeout(() => refresh(), 600);
+    });
   });
 }
 
+/* ---------- recurring ---------- */
+// Cron in words for the shapes people actually write; anything else keeps just
+// the expression, which is shown underneath either way.
+const DOW = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+function cronWords(spec){
+  const s = spec.trim();
+  const named = {"@yearly":"Once a year, on 1 January","@annually":"Once a year, on 1 January",
+    "@monthly":"Monthly, on the 1st at midnight","@weekly":"Weekly, on Sunday at midnight",
+    "@daily":"Every day at midnight","@midnight":"Every day at midnight","@hourly":"Every hour, on the hour"};
+  if (named[s]) return named[s];
+  const ev = s.match(/^@every\s+(.+)$/);
+  if (ev) return "Every " + ev[1];
+  const f = s.split(/\s+/);
+  if (f.length !== 5) return "";
+  const [mi, h, dom, mon, dow] = f;
+  const num = (v) => /^\d+$/.test(v);
+  const step = (v) => (v.match(/^\*\/(\d+)$/) || [])[1];
+  const at = () => `${h.padStart(2,"0")}:${mi.padStart(2,"0")}`;
+  const plural = (n, w) => n === "1" ? w : `${n} ${w}s`;
+  if (mon !== "*") return "";
+
+  if (dom === "*" && dow === "*") {
+    if (mi === "*" && h === "*") return "Every minute";
+    if (step(mi) && h === "*") return "Every " + plural(step(mi), "minute");
+    if (num(mi) && h === "*") return mi === "0" ? "Every hour, on the hour" : `Every hour at :${mi.padStart(2,"0")}`;
+    if (num(mi) && step(h)) return `Every ${plural(step(h), "hour")} at :${mi.padStart(2,"0")}`;
+    if (num(mi) && num(h)) return "Every day at " + at();
+  }
+  if (!num(mi) || !num(h)) return "";
+  if (dom === "*") {
+    if (dow === "1-5") return "Weekdays at " + at();
+    if (dow === "0,6" || dow === "6,0") return "Weekends at " + at();
+    if (/^[0-7](,[0-7])*$/.test(dow)) return "Every " + dow.split(",").map(d => DOW[+d]).join(", ") + " at " + at();
+    return "";
+  }
+  if (dow === "*" && num(dom)) {
+    const n = +dom, sfx = (n%10===1 && n!==11) ? "st" : (n%10===2 && n!==12) ? "nd" : (n%10===3 && n!==13) ? "rd" : "th";
+    return `Monthly, on the ${n}${sfx} at ${at()}`;
+  }
+  return "";
+}
+
 async function loadRecurring(){
+  if (overview && !caps.schedules) {
+    $("n-recurring").textContent = "0";
+    $("rec-sum").textContent = "";
+    $("recurring").innerHTML = `<tr><td colspan="6" class="empty">This storage driver does not support schedules</td></tr>`;
+    return;
+  }
   const d = await get("/schedules");
-  const ss = d.schedules || [];
-  $("n-recurring").textContent = fmt.n(ss.length);
-  $("recurring").innerHTML = ss.length ? ss.map(s => `
-    <tr class="row"><td class="mono">${esc(s.id)}
-        ${s.paused ? '<span class="badge b-retrying">paused</span>' : ""}</td>
-      <td><span class="cron">${esc(s.cron)}</span></td>
-      <td class="muted" style="color:var(--muted)">${esc(s.timezone)}</td>
+  schedules = d.schedules || [];
+  const paused = schedules.filter(s => s.paused).length;
+  $("n-recurring").textContent = fmt.n(schedules.length);
+  $("rec-sum").textContent = `${schedules.length} schedule${schedules.length===1?"":"s"} · ${paused} paused`;
+  if (currentTab() !== "recurring") return;
+
+  $("recurring").innerHTML = schedules.length ? schedules.map(s => {
+    const words = cronWords(s.cron);
+    return `<tr class="${s.paused ? "off" : ""}">
+      <td><b>${esc(s.id)}</b>${s.paused ? '<span class="badge b-paused">paused</span>' : ""}
+        <div class="sub-line">queue: ${esc(s.queue)}</div></td>
+      <td>${words ? `<div>${esc(words)}</div>` : ""}
+        <div class="sub-line" style="margin-top:3px"><span class="cron">${esc(s.cron)}</span> ${esc(s.timezone)}</div></td>
       <td class="mono">${esc(s.kind)}</td>
-      <td class="num when">${s.paused ? "—" : fmt.rel(s.next_run)}</td>
-      <td class="num">${s.last_run
-        ? `<span class="badge b-succeeded">${fmt.rel(s.last_run)}</span>`
-        : `<span class="badge b-scheduled">never</span>`}</td>
-      <td style="text-align:right;white-space:nowrap">
-        <button class="btn" data-trigger="${esc(s.id)}">Trigger</button>
+      <td class="num" title="${esc(fmt.time(s.next_run))}">${s.paused ? "—" : fmt.rel(s.next_run)}</td>
+      <td class="num">${s.last_run ? badge("scheduled", fmt.rel(s.last_run))
+                                     : `<span class="faint">never</span>`}</td>
+      <td class="num">
+        <button class="btn" data-trigger="${esc(s.id)}">Trigger now</button>
         <button class="btn" data-sched="${esc(s.id)}" data-paused="${s.paused?1:0}">${s.paused?"Resume":"Pause"}</button>
-      </td></tr>`).join("")
-    : `<tr><td colspan="7" class="empty">No recurring jobs registered</td></tr>`;
+      </td></tr>`;
+  }).join("")
+    : `<tr><td colspan="6" class="empty">No recurring jobs registered</td></tr>`;
 
   bind("[data-sched]", async b => {
     await post(`/schedules/${encodeURIComponent(b.dataset.sched)}/${b.dataset.paused==="1"?"resume":"pause"}`);
@@ -667,83 +1105,112 @@ async function loadRecurring(){
   });
   bind("[data-trigger]", async b => {
     await post(`/schedules/${encodeURIComponent(b.dataset.trigger)}/trigger`);
-    loadRecurring(); loadOverview();
+    done(b, "Triggered ✓");
+    loadOverview();
   });
 }
 
 /* ---------- plumbing ---------- */
 function bind(sel, fn){
-  if (!fn) return;
   document.querySelectorAll(sel).forEach(el => {
-    el.onclick = async () => { try { await fn(el); } catch (e) { showError(e.message); } };
+    el.onclick = async (e) => {
+      e.preventDefault();
+      try { await fn(el); } catch (err) { showError(err.message); }
+    };
+  });
+}
+function bindGo(root){
+  root.querySelectorAll("[data-go]").forEach(a => {
+    a.onclick = (e) => { e.preventDefault(); go(a.dataset.go); };
   });
 }
 
-function showTab(name){
-  for (const b of document.querySelectorAll(".topbar nav button"))
-    b.setAttribute("aria-selected", String(b.dataset.tab === name));
-  for (const id of ["overview","jobs","retries","recurring","servers"])
-    $("tab-"+id).classList.toggle("hide", id !== name);
-  if (name !== "jobs") closeDetail();
-  localStorage.setItem("jobsync.tab", name);
+// The location hash is the route, so the back button and a pasted link both land
+// where they should: #/jobs, #/jobs/<id>, #/failures.
+function go(tab, id){
+  const h = "#/" + tab + (id ? "/" + encodeURIComponent(id) : "");
+  if (location.hash === h) route(); else location.hash = h;
 }
-function currentTab(){
-  return document.querySelector(".topbar nav button[aria-selected=true]").dataset.tab;
+function parseRoute(){
+  const [, tab, id] = location.hash.match(/^#\/([a-z]+)(?:\/(.+))?$/) || [];
+  return TABS.includes(tab) ? {tab, id: id && decodeURIComponent(id)} : {tab:"overview"};
+}
+function currentTab(){ return parseRoute().tab; }
+
+function route(){
+  const {tab, id} = parseRoute();
+  for (const b of document.querySelectorAll(".seg button"))
+    b.setAttribute("aria-selected", String(b.dataset.tab === tab));
+  for (const t of TABS) $("tab-"+t).classList.toggle("hide", t !== tab);
+  $("crumb").innerHTML = id ? `<a data-go="${tab}">${cap(tab)}</a>` : cap(tab);
+  bindGo($("crumb"));
+  $("crumb-id").classList.toggle("hide", !id);
+  $("crumb-id-text").textContent = id ? id.slice(0, 8) + "…" : "";
+  if (tab === "jobs" && id) { openDetail(id); }
+  else { $("jobs-detail").classList.add("hide"); $("jobs-list").classList.remove("hide"); }
+  window.scrollTo(0, 0);
+  refresh();
 }
 
 // background=true is the ten-second tick. It refreshes counters and the graph but
-// never the jobs table: rows reordering under the cursor made a click land on a
-// different job than the one that was read, which is how an operator deletes the
-// wrong thing.
+// never the jobs table or the failure groups: rows reordering under the cursor
+// made a click land on a different job than the one that was read, which is how
+// an operator deletes the wrong thing.
 async function refresh(background){
   try {
-    showError(null);
     await loadOverview();
-    const t = currentTab();
-    const onDetail = !$("jobs-detail").classList.contains("hide");
-    if (t === "jobs" && !onDetail && !background) await loadJobs();
-    if (t === "retries" && !background) await loadRetries();
+    const {tab, id} = parseRoute();
+    if (tab === "jobs" && !id && !background) await loadJobs();
+    if (tab === "failures" && !background) await loadFailures();
+    if (tab === "overview") {
+      if (overview.counts.dead && !background) await loadCauses("dead", 200);
+      renderAttention();
+    }
     // Always: the nav pill's count comes from here, and leaving it stale at zero
     // while sitting on another tab is a lie about whether anything is scheduled.
     await loadRecurring();
+    lastOK = Date.now();
+    showError(null);
   } catch (e) { showError(e.message); }
 }
 
-for (const b of document.querySelectorAll(".topbar nav button"))
-  b.onclick = () => { showTab(b.dataset.tab); refresh(); };
-$("refresh").onclick = refresh;
-$("apply").onclick = () => { offset = 0; loadJobs(); };
-$("prev").onclick = () => { offset = Math.max(0, offset-limit); loadJobs(); };
-$("next").onclick = () => { offset += limit; loadJobs(); };
+for (const b of document.querySelectorAll(".seg button")) b.onclick = () => go(b.dataset.tab);
+bindGo(document);
+$("refresh").onclick = () => refresh();
+$("filter-form").onsubmit = (e) => { e.preventDefault(); offset = 0; loadJobs(); };
+$("limit").onchange = () => { limit = +$("limit").value; offset = 0; loadJobs(); };
+$("action").onchange = syncActions;
 $("all").onclick = () => {
   selected.clear();
   document.querySelectorAll("[data-pick]").forEach(cb => {
     cb.checked = $("all").checked; if (cb.checked) selected.add(cb.dataset.pick);
+    cb.closest("tr").classList.toggle("picked", cb.checked);
   });
   syncActions();
 };
-$("requeue").onclick = async () => {
-  try { await post("/jobs/requeue", {ids:[...selected]}); await refresh(); }
-  catch (e) { showError(e.message); }
-};
-$("delete").onclick = async () => {
-  if (!confirm(`Delete ${selected.size} job(s)? This cannot be undone.`)) return;
-  try { await post("/jobs/delete", {ids:[...selected]}); await refresh(); }
-  catch (e) { showError(e.message); }
+$("go").onclick = async () => {
+  const ids = [...selected], b = $("go");
+  try {
+    if ($("action").value === "requeue") { await post("/jobs/requeue", {ids}); await refresh(); return; }
+    armed(b, `Delete ${ids.length}?`, async () => {
+      try { await post("/jobs/delete", {ids}); await refresh(); } catch (e) { showError(e.message); }
+    });
+  } catch (e) { showError(e.message); }
 };
 bind("#window button", b => {
   gWindow = b.dataset.window; gBucket = b.dataset.bucket;
   document.querySelectorAll("#window button").forEach(x =>
     x.setAttribute("aria-selected", String(x === b)));
-  loadOverview();
+  return loadOverview();
 });
+bind("#fail-state button", b => { failState = b.dataset.fail; openCause = null; return loadFailures(); });
 
-showTab(localStorage.getItem("jobsync.tab") || "overview");
-renderPerPage();
-refresh();
+window.addEventListener("hashchange", route);
+route();
 // Ten seconds: often enough to watch a deploy drain, rare enough not to fight
 // an operator who is reading a stack trace.
 setInterval(() => { if (!document.hidden) refresh(true); }, 10000);
+setInterval(tickLive, 1000);
 </script>
 </body>
 </html>
