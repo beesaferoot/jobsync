@@ -32,7 +32,15 @@ type MailArgs struct {
 	To string `json:"to"`
 }
 
-var SendMail = jobsync.Declare[MailArgs]("email.send")
+type InvoiceArgs struct {
+	Invoice  int `json:"invoice"`
+	Customer int `json:"customer"`
+}
+
+var (
+	SendMail    = jobsync.Declare[MailArgs]("email.send")
+	SendInvoice = jobsync.Declare[InvoiceArgs]("billing.invoice")
+)
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -54,11 +62,26 @@ func main() {
 		Concurrency:      4,
 		PollInterval:     200 * time.Millisecond,
 		ScheduleInterval: time.Second,
+		// Seconds rather than the default exponential minutes, so a failing job
+		// walks through Retrying to Dead while you watch.
+		Backoff: func(attempt int) time.Duration { return time.Duration(attempt) * 2 * time.Second },
 	})
 	SendMail.Handle(srv, func(ctx context.Context, a MailArgs) error {
 		time.Sleep(time.Duration(rand.IntN(500)) * time.Millisecond)
 		if rand.IntN(5) == 0 {
 			return errors.New("smtp: connection refused")
+		}
+		return nil
+	})
+	// The two failure modes worth seeing on the Failures tab: email fails
+	// transiently and is retried until it runs out of attempts; billing fails
+	// permanently, so retrying is skipped. Its message carries per-job IDs,
+	// which the dashboard masks to group the failures as one cause.
+	SendInvoice.Handle(srv, func(ctx context.Context, a InvoiceArgs) error {
+		time.Sleep(time.Duration(rand.IntN(300)) * time.Millisecond)
+		if a.Customer%7 == 0 {
+			return fmt.Errorf("billing: invoice %d: customer %d has no payment method: %w",
+				a.Invoice, a.Customer, jobsync.ErrPermanent)
 		}
 		return nil
 	})
@@ -89,7 +112,8 @@ func main() {
 }
 
 // produce keeps the dashboard interesting: a trickle of work, some of it
-// deliberately slow to arrive so the Scheduled and Retrying tiles are not empty.
+// deliberately slow to arrive so the Scheduled tile is not empty, and some of it
+// failing so Retrying, Dead and the Failures tab are not either.
 func produce(ctx context.Context, c *jobsync.Client) {
 	for i := 0; ; i++ {
 		select {
@@ -100,7 +124,12 @@ func produce(ctx context.Context, c *jobsync.Client) {
 
 		queue := []string{"default", "mail"}[i%2]
 		SendMail.Enqueue(ctx, c, MailArgs{To: fmt.Sprintf("user%d@example.com", i)},
-			jobsync.Queue(queue), jobsync.Tags("demo"))
+			jobsync.Queue(queue), jobsync.Tags("demo"), jobsync.MaxAttempts(3))
+
+		if i%3 == 0 {
+			SendInvoice.Enqueue(ctx, c, InvoiceArgs{Invoice: 10000 + i, Customer: rand.IntN(500)},
+				jobsync.Tags("demo"))
+		}
 
 		if i%10 == 0 {
 			SendMail.Schedule(ctx, c, MailArgs{To: "later@example.com"},
