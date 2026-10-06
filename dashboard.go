@@ -8,6 +8,7 @@ import (
 	"strings"
 )
 
+// DashboardConfig configures the dashboard handler.
 type DashboardConfig struct {
 	// BasePath is where the dashboard is mounted, e.g. "/jobs". Links are built
 	// relative to it, so it must match the mux pattern.

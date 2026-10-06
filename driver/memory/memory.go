@@ -36,6 +36,7 @@ type serverEntry struct {
 	expires time.Time
 }
 
+// New returns an empty in-process storage.
 func New() *Storage {
 	return &Storage{
 		jobs:         map[string]*jobsync.Job{},

@@ -27,6 +27,7 @@ func NewClient(store Storage, opts ...ClientOption) (*Client, error) {
 	return c, nil
 }
 
+// ClientOption configures a Client at construction.
 type ClientOption func(*Client)
 
 // InLocation sets the timezone cron expressions are evaluated in.

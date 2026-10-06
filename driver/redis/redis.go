@@ -53,6 +53,8 @@ type Storage struct {
 	fetch, finish, reclaim *redis.Script
 }
 
+// Open connects using a redis:// URL. Use New to supply a client you have
+// already configured — a cluster client, or one with custom timeouts.
 func Open(url string) (*Storage, error) {
 	opt, err := redis.ParseURL(url)
 	if err != nil {
@@ -61,6 +63,7 @@ func Open(url string) (*Storage, error) {
 	return New(redis.NewClient(opt)), nil
 }
 
+// New wraps an existing Redis client.
 func New(rdb *redis.Client) *Storage {
 	return &Storage{
 		rdb:       rdb,

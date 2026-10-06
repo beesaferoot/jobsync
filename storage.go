@@ -210,6 +210,7 @@ type Counts struct {
 	Scheduled, Enqueued, Running, Retrying, Succeeded, Dead, Cancelled int64
 }
 
+// QueueStat is one row of the dashboard's queue table.
 type QueueStat struct {
 	Name     string
 	Enqueued int64
@@ -219,6 +220,8 @@ type QueueStat struct {
 	OldestEnqueued time.Duration
 }
 
+// ServerInfo is one running server, as reported by Heartbeat and listed by
+// Monitor.Servers.
 type ServerInfo struct {
 	ID          string
 	Hostname    string
@@ -235,6 +238,7 @@ type Transition struct {
 	Reason string
 }
 
+// Bucket is one interval of the throughput graph.
 type Bucket struct {
 	At        time.Time
 	Succeeded int64

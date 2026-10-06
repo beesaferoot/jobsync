@@ -34,6 +34,8 @@ type New func(t *testing.T) jobsync.Storage
 // the point of having one.
 const grace = 500 * time.Millisecond
 
+// Run executes the whole conformance suite against newStore. Optional
+// capabilities the driver does not implement are skipped, not failed.
 func Run(t *testing.T, newStore New) {
 	t.Run("EnqueueThenFetch", func(t *testing.T) { testEnqueueThenFetch(t, newStore) })
 	t.Run("FetchIsExclusive", func(t *testing.T) { testFetchIsExclusive(t, newStore) })

@@ -25,6 +25,8 @@ type Server struct {
 
 type handler func(context.Context, []byte) error
 
+// ServerConfig tunes a Server. Every field has a working default, so the zero
+// value runs ten workers on the "default" queue.
 type ServerConfig struct {
 	// Queues are polled in the order given, so the first is the highest priority.
 	Queues []string
@@ -48,6 +50,8 @@ type ServerConfig struct {
 	Logger  *slog.Logger
 }
 
+// NewServer returns a worker bound to store. Register handlers on it with each
+// job type's Handle method before calling Run.
 func NewServer(store Storage, cfg ServerConfig) *Server {
 	if len(cfg.Queues) == 0 {
 		cfg.Queues = []string{"default"}

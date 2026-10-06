@@ -302,3 +302,7 @@ and batches, and batched fetch (`Fetch` claims one job per round trip).
 
 See `DESIGN.md` for the architecture and the reasoning behind the storage
 contract.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

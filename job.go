@@ -37,6 +37,7 @@ func Declare[T any](kind string) *JobType[T] {
 	return &JobType[T]{kind: kind}
 }
 
+// Kind is the name persisted with every job of this type.
 func (j *JobType[T]) Kind() string { return j.kind }
 
 // Enqueue queues args for execution as soon as a server picks it up.
@@ -152,13 +153,41 @@ func (j *JobType[T]) build(args T, opts []Option) (*Job, error) {
 
 // Option adjusts a job at enqueue time. Every field it touches has a working
 // default, which is why these are options and not parameters.
+//
+// Pass them to Enqueue, Schedule, EnqueueTx or Cron:
+//
+//	SendWelcome.Enqueue(ctx, client, args,
+//		jobsync.Queue("mail"),
+//		jobsync.MaxAttempts(5),
+//	)
 type Option func(*Job)
 
-func Queue(name string) Option   { return func(j *Job) { j.Queue = name } }
-func Priority(p int) Option      { return func(j *Job) { j.Priority = p } }
-func MaxAttempts(n int) Option   { return func(j *Job) { j.MaxAttempts = n } }
+// Queue routes the job to a named queue. Default: "default". A server only runs
+// the queues it was configured with, so this is how work is partitioned across
+// pools.
+func Queue(name string) Option { return func(j *Job) { j.Queue = name } }
+
+// Priority orders the job within its queue. Lower runs first; default 0.
+// Honoured exactly by the SQL drivers, and clamped to 0..9 by Redis, where a
+// sorted-set score cannot encode both priority and due time.
+func Priority(p int) Option { return func(j *Job) { j.Priority = p } }
+
+// MaxAttempts caps how many times the job runs before it is marked dead.
+// Default 10. A handler returning an error wrapping ErrPermanent skips the
+// remaining attempts regardless.
+func MaxAttempts(n int) Option { return func(j *Job) { j.MaxAttempts = n } }
+
+// Tags attaches labels for filtering on the dashboard. They carry no meaning to
+// the scheduler.
 func Tags(tags ...string) Option { return func(j *Job) { j.Tags = tags } }
-func In(d time.Duration) Option  { return runAt(time.Now().Add(d)) }
-func Unique(key string) Option   { return func(j *Job) { j.UniqueKey = key } }
+
+// In delays the job by d.
+func In(d time.Duration) Option { return runAt(time.Now().Add(d)) }
+
+// Unique drops the job if another holding the same key has not yet reached a
+// terminal state — so a sweep enqueued by three replicas runs once. The key is
+// released when the job finishes, which is what lets a daily job keyed by date
+// run again tomorrow.
+func Unique(key string) Option { return func(j *Job) { j.UniqueKey = key } }
 
 func runAt(at time.Time) Option { return func(j *Job) { j.ScheduledAt = at } }
