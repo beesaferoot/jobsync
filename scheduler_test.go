@@ -2,6 +2,7 @@ package jobsync_test
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -190,4 +191,50 @@ func TestCronRejectsLocalTimezone(t *testing.T) {
 	if len(got) != 1 || got[0].Timezone != "UTC" {
 		t.Errorf("default timezone = %q, want UTC", got[0].Timezone)
 	}
+}
+
+type poisonArgs struct{ N int }
+
+var poison = jobsync.Declare[poisonArgs]("test.poison")
+
+// A handler returning ErrPermanent must not burn its remaining attempts, and a
+// payload that cannot decode must be treated the same way: it will not decode
+// on the tenth attempt either.
+func TestPermanentFailureSkipsRetries(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	store := memory.New()
+	client, err := jobsync.NewClient(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var attempts atomic.Int64
+	srv := jobsync.NewServer(store, jobsync.ServerConfig{
+		Concurrency: 1, Lease: 5 * time.Second, PollInterval: 10 * time.Millisecond,
+	})
+	poison.Handle(srv, func(context.Context, poisonArgs) error {
+		attempts.Add(1)
+		return fmt.Errorf("bad row: %w", jobsync.ErrPermanent)
+	})
+	go srv.Run(ctx)
+
+	id, err := poison.Enqueue(ctx, client, poisonArgs{N: 1}, jobsync.MaxAttempts(10))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		job, _, err := store.JobHistory(ctx, id)
+		if err == nil && job.State == jobsync.StateDead {
+			if n := attempts.Load(); n != 1 {
+				t.Errorf("handler ran %d times, want 1: a permanent failure must not retry", n)
+			}
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("job never reached dead; handler ran %d times, state never settled", attempts.Load())
 }

@@ -4,7 +4,20 @@
 // driver is a weekend, not a month.
 package jobsync
 
-import "time"
+import (
+	"errors"
+	"time"
+)
+
+// ErrPermanent marks a failure that retrying cannot fix. A handler returning an
+// error wrapping it sends the job straight to StateDead, skipping its remaining
+// attempts.
+//
+// The canonical case is a payload that will not decode: it will not decode on
+// the tenth attempt either, so the retries are pure waste and they bury the real
+// failures under noise. Use it for anything the job itself can never resolve —
+// a malformed payload, a deleted row, a permanently rejected request.
+var ErrPermanent = errors.New("jobsync: permanent failure")
 
 // State is the lifecycle position of a job. The set is closed: drivers must not
 // invent states, because the dashboard and the retry policy both switch on it.

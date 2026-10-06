@@ -184,6 +184,13 @@ func (s *Server) run(ctx context.Context, job *Job) {
 	}
 
 	attempt := job.Attempt + 1
+	// A permanent failure skips the remaining attempts: retrying something the
+	// job can never resolve only buries the real failures under noise.
+	if errors.Is(err, ErrPermanent) {
+		s.log.Error("jobsync: job failed permanently", "id", job.ID, "kind", job.Kind, "err", err)
+		s.finish(ctx, job, Result{State: StateDead, Err: err.Error()})
+		return
+	}
 	if attempt >= job.MaxAttempts {
 		s.log.Error("jobsync: job dead", "id", job.ID, "kind", job.Kind, "attempts", attempt, "err", err)
 		s.finish(ctx, job, Result{State: StateDead, Err: err.Error()})

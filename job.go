@@ -117,7 +117,9 @@ func (j *JobType[T]) Handle(srv *Server, fn func(context.Context, T) error) {
 	srv.register(j.kind, func(ctx context.Context, payload []byte) error {
 		var args T
 		if err := json.Unmarshal(payload, &args); err != nil {
-			return fmt.Errorf("decode %s args: %w", j.kind, err)
+			// Permanent by construction: a payload that will not decode now will
+			// not decode on the tenth attempt either.
+			return fmt.Errorf("decode %s args: %w: %w", j.kind, err, ErrPermanent)
 		}
 		return fn(ctx, args)
 	})

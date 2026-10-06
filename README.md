@@ -244,6 +244,11 @@ exactly-once and the docs will not pretend otherwise.
 **Due-ness uses the storage's clock**, never the calling process's — it's the
 only clock every server shares.
 
+**A permanent failure skips its remaining attempts.** Return an error wrapping
+`jobsync.ErrPermanent` and the job goes straight to dead. A payload that will not
+decode is treated this way automatically — it would not decode on the tenth
+attempt either, and the retries bury real failures under noise.
+
 **A duplicate job ID is ignored, not overwritten.** This is what makes the
 scheduler idempotent: a server crashing between enqueuing a tick and recording
 it refires the same tick as a no-op.
