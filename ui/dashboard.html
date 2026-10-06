@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="dark">
+<meta name="color-scheme" content="dark light">
+<script>try{if(localStorage.getItem("jobsync.theme")==="light")document.documentElement.dataset.theme="light"}catch{}</script>
 <title>jobsync</title>
 <style>
 /* Dark only, and deliberately plain: flat surfaces, one accent colour, solid
@@ -20,6 +21,33 @@
   --ui:"Helvetica Neue",Helvetica,Arial,sans-serif;
   --mono:Menlo,Monaco,"SF Mono",ui-monospace,Consolas,monospace;
   --button:linear-gradient(#2b3037,#24282e);
+  --hover:#232930; --hover-edge:#46505b; --press:#1d2126; --field:#14171b; --tip:#0e1013; --pill:#4b545e;
+  --alarm-bg:#2a1c1b; --alarm-edge:#5a2c28; --calm-bg:#1c271d; --calm-edge:#2e4a2e;
+  --note-bg:#26230f; --note-edge:#5e5222; --note-text:#e6d58e;
+  --pane:#17191d; --code-bg:#15171b; --reason:#e0948c;
+  --trace:#dcb3ad; --trace-hi-bg:#3a2422; --trace-hi:#ffb1a8;
+  --chart-ok:#5ccf5a; --chart-ok-fill:#3fa14a38; --chart-bad:#ff6b5e;
+  --c-com:#6a9955; --c-fn:#dcdcaa; --c-key:#9cdcfe; --c-str:#ce9178; --c-num:#b5cea8; --c-kw:#569cd6;
+}
+/* Light: the same layout with the surfaces inverted. Only tokens change, so a
+   rule that reads a token is right in both themes. */
+:root[data-theme=light]{
+  color-scheme:light;
+  --page:#f0f2f4;
+  --sheet:#ffffff; --sheet-edge:#d5dae0;
+  --raised:#eef1f4; --zebra:#f7f8fa; --line:#e4e8ec; --border:#cfd5dc;
+  --text:#1f2429; --muted:#5f6974; --faint:#8a939d;
+  --accent:#2f6fb3; --accent-hi:#3a7fc6;
+  --link:#2a6db0; --link-hover:#174d82; --pick:#fff7d1;
+  --ok:#2f8a2d; --bad:#c23a30; --warn:#9a6c00; --run:#2468ad; --queue:#4b52b8; --idle:#6a727c;
+  --button:linear-gradient(#ffffff,#eef1f4);
+  --hover:#eef3f8; --hover-edge:#b7c0ca; --press:#e2e6ea; --field:#ffffff; --tip:#ffffff; --pill:#8a939d;
+  --alarm-bg:#fdf0ee; --alarm-edge:#ecc0ba; --calm-bg:#eef7ed; --calm-edge:#bcdcb9;
+  --note-bg:#fffbe0; --note-edge:#e8d98a; --note-text:#5c4f00;
+  --pane:#fafbfc; --code-bg:#f7f8fa; --reason:#b2392f;
+  --trace:#7a2a23; --trace-hi-bg:#fde3df; --trace-hi:#9e1f15;
+  --chart-ok:#3a9a38; --chart-ok-fill:#3a9a3826; --chart-bad:#d23b30;
+  --c-com:#3a8a2a; --c-fn:#795e26; --c-key:#0451a5; --c-str:#a31515; --c-num:#098658; --c-kw:#0000c8;
 }
 *{box-sizing:border-box}
 html{background:var(--page)}
@@ -57,7 +85,7 @@ a:hover,.link:hover{color:var(--link-hover);text-decoration:underline}
 .seg button:hover{background:var(--raised)}
 .seg button[aria-selected=true]{background:var(--accent);color:#fff}
 .count{font-size:11px;font-weight:bold;min-width:18px;padding:0 6px;border-radius:3px;line-height:17px;
-  text-align:center;color:#fff;background:#4b545e;font-variant-numeric:tabular-nums}
+  text-align:center;color:#fff;background:var(--pill);font-variant-numeric:tabular-nums}
 .seg button[aria-selected=true] .count{background:#ffffff33}
 .count.alarm,.seg button[aria-selected=true] .count.alarm{background:#c9443a}
 
@@ -74,10 +102,10 @@ main{flex:1;width:100%;max-width:1260px;margin:-12px auto 0;padding:0 20px}
   background:var(--sheet);border-bottom:1px solid var(--border);color:var(--text);
   font-size:14px;font-weight:bold}
 .module>.cap .muted{font-weight:normal;color:var(--muted)}
-.module.alarm{border-color:#5a2c28}
-.module.alarm>.cap{background:#2a1c1b;border-bottom-color:#5a2c28;color:var(--bad)}
-.module.calm{border-color:#2e4a2e}
-.module.calm>.cap{background:#1c271d;border-bottom-color:#2e4a2e;color:var(--ok)}
+.module.alarm{border-color:var(--alarm-edge)}
+.module.alarm>.cap{background:var(--alarm-bg);border-bottom-color:var(--alarm-edge);color:var(--bad)}
+.module.calm{border-color:var(--calm-edge)}
+.module.calm>.cap{background:var(--calm-bg);border-bottom-color:var(--calm-edge);color:var(--ok)}
 .body{padding:12px}
 .stack{display:flex;flex-direction:column;gap:18px}
 .cols{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start}
@@ -88,8 +116,8 @@ main{flex:1;width:100%;max-width:1260px;margin:-12px auto 0;padding:0 20px}
 /* ---- buttons & fields ---- */
 .btn{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:4px;font:12px var(--ui);
   cursor:pointer;white-space:nowrap;border:1px solid var(--border);background:var(--button);color:var(--text)}
-.btn:hover:not(:disabled){background:var(--raised);border-color:#46505b}
-.btn:active:not(:disabled){background:#1d2126}
+.btn:hover:not(:disabled){background:var(--raised);border-color:var(--hover-edge)}
+.btn:active:not(:disabled){background:var(--press)}
 .btn:disabled{opacity:.4;cursor:not-allowed}
 .btn.primary{border-color:#336aa5;background:var(--accent);color:#fff}
 .btn.primary:hover:not(:disabled){background:var(--accent-hi);border-color:#3d7cc0}
@@ -102,10 +130,10 @@ main{flex:1;width:100%;max-width:1260px;margin:-12px auto 0;padding:0 20px}
   background:var(--button);color:var(--text)}
 .mini button:first-child{border-left:0}
 .mini button[aria-selected=true]{background:var(--accent);color:#fff}
-input,select{font:13px var(--ui);color:var(--text);background:#14171b;border:1px solid var(--border);
+input,select{font:13px var(--ui);color:var(--text);background:var(--field);border:1px solid var(--border);
   border-radius:4px;padding:4px 8px}
 .search{display:flex;align-items:center;gap:6px;flex:1;max-width:340px;padding:4px 10px;border-radius:4px;
-  background:#14171b;border:1px solid var(--border)}
+  background:var(--field);border:1px solid var(--border)}
 .search input{border:0;background:none;padding:0;flex:1;min-width:0}
 .search svg{width:12px;height:12px;color:var(--faint);flex:none}
 
@@ -117,7 +145,7 @@ th{text-align:left;padding:9px 12px;font-size:13px;font-weight:bold;color:var(--
 th+th,td+td{border-left:1px solid var(--line)}
 td{padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
 tbody tr:nth-child(even){background:var(--zebra)}
-tbody tr:hover{background:#232930}
+tbody tr:hover{background:var(--hover)}
 tbody tr.picked{background:var(--pick)}
 tbody tr:last-child td{border-bottom:0}
 .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -143,7 +171,7 @@ tbody tr:last-child td{border-bottom:0}
 @media (max-width:520px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .tile{text-align:left;padding:10px 14px 11px;border:1px solid var(--border);border-radius:4px;cursor:pointer;
   background:var(--button);color:var(--text);font:inherit}
-.tile:hover{background:var(--raised);border-color:#46505b}
+.tile:hover{background:var(--raised);border-color:var(--hover-edge)}
 .tile .k{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
 .tile .n{font-size:24px;font-weight:300;line-height:1.3;margin-top:2px;font-variant-numeric:tabular-nums}
 .tile .hint{font-size:11px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -159,7 +187,7 @@ tbody tr:last-child td{border-bottom:0}
 .srv{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);font-size:13px}
 .srv:last-child{border-bottom:0}
 .srv .grow{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tip{position:fixed;pointer-events:none;background:#0e1013;color:var(--text);border:1px solid var(--border);
+.tip{position:fixed;pointer-events:none;background:var(--tip);color:var(--text);border:1px solid var(--border);
   border-radius:4px;padding:7px 10px;font-size:12px;line-height:1.5;z-index:50;display:none}
 .tip b{display:block;margin-bottom:2px}
 .tip i{display:inline-block;width:8px;height:8px;margin-right:6px}
@@ -184,12 +212,12 @@ tbody tr:last-child td{border-bottom:0}
 .filters .list button[aria-selected=true] .c{color:#e3efff}
 .filters .divider{border-top:1px solid var(--line)}
 a.id{font-family:var(--mono);font-size:12px}
-.reason{font-family:var(--mono);font-size:12px;color:#e0948c;max-width:300px;
+.reason{font-family:var(--mono);font-size:12px;color:var(--reason);max-width:300px;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* ---- failures ---- */
-.note{padding:10px 12px;margin-bottom:16px;border:1px solid #5e5222;border-radius:4px;background:#26230f;
-  color:#e6d58e;font-size:13px;line-height:1.5}
+.note{padding:10px 12px;margin-bottom:16px;border:1px solid var(--note-edge);border-radius:4px;background:var(--note-bg);
+  color:var(--note-text);font-size:13px;line-height:1.5}
 .cause{border:1px solid var(--border);border-radius:4px;overflow:hidden}
 .cause+.cause{margin-top:12px}
 .cause>header{display:grid;grid-template-columns:14px minmax(0,1fr) 132px auto;gap:14px;align-items:center;
@@ -207,20 +235,20 @@ a.id{font-family:var(--mono);font-size:12px}
 .cause .open{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);border-top:1px solid var(--border)}
 @media (max-width:760px){.cause .open{grid-template-columns:1fr}}
 .cause .open>div{padding:12px 14px}
-.cause .open>div:first-child{background:#17191d;border-right:1px solid var(--line)}
+.cause .open>div:first-child{background:var(--pane);border-right:1px solid var(--line)}
 .label{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--faint);margin-bottom:6px}
 pre{margin:0;font-family:var(--mono);font-size:12px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
-pre.trace{color:#dcb3ad;max-height:340px;overflow:auto}
-pre.trace .first{display:block;background:#3a2422;color:#ffb1a8;font-weight:bold;margin:0 -6px;padding:0 6px;border-radius:2px}
+pre.trace{color:var(--trace);max-height:340px;overflow:auto}
+pre.trace .first{display:block;background:var(--trace-hi-bg);color:var(--trace-hi);font-weight:bold;margin:0 -6px;padding:0 6px;border-radius:2px}
 
 /* ---- job detail ---- */
 .detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:16px;flex-wrap:wrap}
 .detail-head h2{margin:0;font-size:22px;font-weight:normal;font-family:var(--mono);color:var(--text)}
 .detail-head .meta{display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap}
-.code{background:#15171b;padding:12px 14px;font-family:var(--mono);font-size:12px;line-height:1.65;
+.code{background:var(--code-bg);padding:12px 14px;font-family:var(--mono);font-size:12px;line-height:1.65;
   white-space:pre-wrap;word-break:break-word;margin:0}
-.c-com{color:#6a9955} .c-fn{color:#dcdcaa} .c-key{color:#9cdcfe} .c-str{color:#ce9178}
-.c-num{color:#b5cea8} .c-kw{color:#569cd6}
+.c-com{color:var(--c-com)} .c-fn{color:var(--c-fn)} .c-key{color:var(--c-key)} .c-str{color:var(--c-str)}
+.c-num{color:var(--c-num)} .c-kw{color:var(--c-kw)}
 .kv td:first-child{width:160px;color:var(--muted)}
 .kv td{font-size:13px}
 .hist{display:flex;flex-direction:column;gap:8px}
@@ -235,7 +263,7 @@ pre.trace .first{display:block;background:#3a2422;color:#ffb1a8;font-weight:bold
   border:1px solid var(--border)}
 tr.off{opacity:.55}
 
-.err-banner{background:#2a1c1b;color:#ffb1a8;border:1px solid #5a2c28;border-radius:4px;padding:10px 12px;
+.err-banner{background:var(--alarm-bg);color:var(--trace-hi);border:1px solid var(--alarm-edge);border-radius:4px;padding:10px 12px;
   margin-bottom:16px;font-size:13px}
 footer{width:100%;max-width:1260px;margin:0 auto;padding:12px 26px 24px;display:flex;gap:16px;flex-wrap:wrap;
   font-size:11px;color:var(--faint)}
@@ -247,6 +275,7 @@ footer{width:100%;max-width:1260px;margin:0 auto;padding:12px 26px 24px;display:
   <h1>jobsync <span>dashboard</span></h1>
   <div class="right">
     <span class="live" id="live"><i></i><span id="live-text">connecting…</span></span>
+    <button class="btn" id="theme" aria-label="Switch theme"></button>
     <button class="btn" id="refresh">Refresh</button>
   </div>
 </header>
@@ -697,15 +726,15 @@ function drawGraph(raw, supported){
   el.innerHTML = `<svg viewBox="0 -6 ${W} ${H+28}" preserveAspectRatio="none" role="img"
       aria-label="Jobs finished per bucket">
     ${ticks}
-    <path d="${area(total)}" fill="#3fa14a" opacity=".22"/>
-    <polyline points="${line(total)}" fill="none" stroke="#5ccf5a" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
-    <polyline points="${line(b => b.Failed||0)}" fill="none" stroke="#ff6b5e" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
+    <path d="${area(total)}" style="fill:var(--chart-ok-fill)"/>
+    <polyline points="${line(total)}" style="fill:none;stroke:var(--chart-ok)" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
+    <polyline points="${line(b => b.Failed||0)}" style="fill:none;stroke:var(--chart-bad)" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
     ${labels}
     ${buckets.map((b,i)=>`<rect x="${x(i)-6}" y="-6" width="12" height="${H+6}" fill="transparent"
        data-i="${i}" style="cursor:crosshair"/>`).join("")}
   </svg>
-  <div class="legend"><span><i style="background:#3fa14a55;border-color:#5ccf5a"></i>Finished</span>
-    <span><i style="background:#ff6b5e33;border-color:#ff6b5e"></i>Failed</span></div>`;
+  <div class="legend"><span><i style="background:var(--chart-ok-fill);border-color:var(--chart-ok)"></i>Finished</span>
+    <span><i style="border-color:var(--chart-bad)"></i>Failed</span></div>`;
 
   const sum = buckets.reduce((a,b) => a+total(b), 0);
   const bad = buckets.reduce((a,b) => a+(b.Failed||0), 0);
@@ -716,8 +745,8 @@ function drawGraph(raw, supported){
     r.onmouseenter = () => {
       const b = buckets[+r.dataset.i];
       tip.innerHTML = `<b>${fmt.time(b.At)}</b>
-        <i style="background:#5ccf5a"></i>Succeeded: ${fmt.n(b.Succeeded)}<br>
-        <i style="background:#ff6b5e"></i>Failed: ${fmt.n(b.Failed)}`;
+        <i style="background:var(--chart-ok)"></i>Succeeded: ${fmt.n(b.Succeeded)}<br>
+        <i style="background:var(--chart-bad)"></i>Failed: ${fmt.n(b.Failed)}`;
       tip.style.display = "block";
     };
     r.onmousemove = (e) => { tip.style.left = (e.clientX+14)+"px"; tip.style.top = (e.clientY+14)+"px"; };
@@ -1177,6 +1206,21 @@ async function refresh(background){
 for (const b of document.querySelectorAll(".seg button")) b.onclick = () => go(b.dataset.tab);
 bindGo(document);
 $("refresh").onclick = () => refresh();
+
+// Dark unless chosen otherwise. The choice is applied by a one-line script in
+// <head> before first paint, so a light-mode user never sees a dark flash.
+function syncTheme(){
+  const light = document.documentElement.dataset.theme === "light";
+  $("theme").textContent = light ? "☾ Dark" : "☀ Light";
+}
+$("theme").onclick = () => {
+  const light = document.documentElement.dataset.theme !== "light";
+  if (light) document.documentElement.dataset.theme = "light";
+  else delete document.documentElement.dataset.theme;
+  try { localStorage.setItem("jobsync.theme", light ? "light" : "dark"); } catch {}
+  syncTheme();
+};
+syncTheme();
 $("filter-form").onsubmit = (e) => { e.preventDefault(); offset = 0; loadJobs(); };
 $("limit").onchange = () => { limit = +$("limit").value; offset = 0; loadJobs(); };
 $("action").onchange = syncActions;
